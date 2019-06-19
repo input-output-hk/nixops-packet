@@ -110,7 +110,6 @@ class PacketState(MachineState):
                                allow_ssh_args=True, user=user))
 
     def get_physical_spec_from_plan(self, public_key):
-        self.plan = nixops.util.attr_property("packet.plan", None)
         if self.plan == "c1.small.x86":
             return Function("{ ... }", {
                  ('config', 'boot', 'initrd', 'availableKernelModules'): [ "ata_piix", "uhci_hcd", "virtio_pci", "sr_mod", "virtio_blk" ],
@@ -169,10 +168,10 @@ class PacketState(MachineState):
         elif self.plan == "g2.large.x86":
             return Function("{ ... }", {
                  ('config', 'boot', 'initrd', 'availableKernelModules'): [ "ata_piix", "uhci_hcd", "virtio_pci", "sr_mod", "virtio_blk" ],
-                 ('config', 'boot', 'loader', 'grub', 'devices'): [ '/dev/sda', '/dev/sdb' ],
+                 ('config', 'boot', 'loader', 'grub', 'devices'): [ '/dev/sda' ],
                  ('config', 'fileSystems', '/'): { 'label': 'nixos', 'fsType': 'ext4'},
                  ('config', 'users', 'users', 'root', 'openssh', 'authorizedKeys', 'keys'): [public_key],
-                 ('config', 'networking', 'bonds', 'bond0', 'interfaces'): [ "enp1s0f0", "enp1s0f1"],
+                 ('config', 'networking', 'bonds', 'bond0', 'interfaces'): [ "enp96s0f0", "enp96s0f1"],
                  ('config', 'boot', 'kernelParams'): [ "console=ttyS1,115200n8" ],
                  ('config', 'boot', 'kernelModules'): [ 'kvm-intel' ],
                  ('config', 'boot', 'loader', 'grub', 'extraConfig'): """
@@ -233,7 +232,7 @@ class PacketState(MachineState):
             public_key = kp.public_key
         else:
             public_key = "not set"
-        self.get_physical_spec_from_plan(public_key)
+        return self.get_physical_spec_from_plan(public_key)
 
 
     def create_after(self, resources, defn):
@@ -356,7 +355,7 @@ class PacketState(MachineState):
         tags.update(common_tags)
         self.log_start("creating packet device ...")
         self.log("project: '{0}'".format(defn.project))
-        self.log("facility: {0}".format(defn.facility));
+        self.log("facility: {0}".format(defn.facility))
         self.log("keyid: {0}".format(kp.keypair_id))
         instance = self._conn.create_device(
             project_id=defn.project,
@@ -373,7 +372,8 @@ class PacketState(MachineState):
 
         self.vm_id = instance.id
         self.key_pair = defn.key_pair
-        self.accessKeyId = defn.access_key_id;
+        self.plan = defn.plan
+        self.accessKeyId = defn.access_key_id
         self.log("instance id: " + self.vm_id)
         self.update_state(instance)
 
