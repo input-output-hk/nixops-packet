@@ -17,7 +17,7 @@ def nixexprs():
 def load():
     return [
         "nixopspacket.resources",
-        "nixopspacket.backends.instance",
+        "nixopspacket.backends.device",
         "nixopspacket.resources.keypair",
     ]
 

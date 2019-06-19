@@ -186,12 +186,13 @@ class PacketState(MachineState):
         return apikey
 
     def get_common_tags(self):
-        tags = [ self.depl.uuid,
-                 self.name,
-                "{0}@{1}:{2}".format(getpass.getuser(), socket.gethostname(), self.depl._db.db_file),
-               ]
+        tags = {
+                 "uuid": self.depl.uuid,
+                 "name": self.name,
+                 "ssh_url": "{0}@{1}:{2}".format(getpass.getuser(), socket.gethostname(), self.depl._db.db_file),
+               }
         if self.depl.name:
-            tags.append(self.depl.name)
+            tags.update({ "deployment_name": self.depl.name})
         return tags
 
 
@@ -295,7 +296,7 @@ class PacketState(MachineState):
         self.log("keyid: {0}".format(kp.keypair_id))
         instance = self._conn.create_device(
             project_id=defn.project,
-            hostname = "{0} [{1}]".format(self.depl.description, self.name),
+            hostname = "{0}.{1}".format(self.name, self.depl.description),
             plan=defn.plan,
             facility=[ defn.facility ],
             operating_system=defn.nixosVersion,
