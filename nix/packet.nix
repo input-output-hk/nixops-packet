@@ -47,8 +47,8 @@ in
         '';
       };
       nixosVersion = mkOption {
-        example = "nixos_18_03";
-        default = "nixos_18_03";
+        example = "nixos_19_03";
+        default = "nixos_19_03";
         type = types.str;
         description = ''
           NixOS version to install

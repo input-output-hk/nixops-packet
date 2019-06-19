@@ -49,6 +49,7 @@ class PacketState(MachineState):
     state = nixops.util.attr_property("state", MachineState.MISSING, int)  # override
     accessKeyId = nixops.util.attr_property("packet.accessKeyId", None)
     key_pair = nixops.util.attr_property("packet.keyPair", None)
+    plan = nixops.util.attr_property("packet.plan", None)
     public_ipv4 = nixops.util.attr_property("publicIpv4", None)
     public_ipv6 = nixops.util.attr_property("publicIpv6", None)
     private_ipv4 = nixops.util.attr_property("privateIpv4", None)
@@ -108,6 +109,122 @@ class PacketState(MachineState):
         sys.exit(ssh.run_command(command, flags, check=False, logged=False,
                                allow_ssh_args=True, user=user))
 
+    def get_physical_spec_from_plan(self, public_key):
+        self.plan = nixops.util.attr_property("packet.plan", None)
+        if self.plan == "c1.small.x86":
+            return Function("{ ... }", {
+                 ('config', 'boot', 'initrd', 'availableKernelModules'): [ "ata_piix", "uhci_hcd", "virtio_pci", "sr_mod", "virtio_blk" ],
+                 ('config', 'boot', 'loader', 'grub', 'devices'): [ '/dev/sda', '/dev/sdb' ],
+                 ('config', 'fileSystems', '/'): { 'label': 'nixos', 'fsType': 'ext4'},
+                 ('config', 'users', 'users', 'root', 'openssh', 'authorizedKeys', 'keys'): [public_key],
+                 ('config', 'networking', 'bonds', 'bond0', 'interfaces'): [ "enp1s0f0", "enp1s0f1"],
+                 ('config', 'boot', 'kernelParams'): [ "console=ttyS1,115200n8" ],
+                 ('config', 'boot', 'loader', 'grub', 'extraConfig'): """
+                     serial --unit=0 --speed=115200 --word=8 --parity=no --stop=1
+                     terminal_output serial console
+                     terminal_input serial console
+                 """,
+                 ('config', 'networking', 'bonds', 'bond0', 'driverOptions'): {
+                     "mode": "802.3ad",
+                     "xmit_hash_policy": "layer3+4",
+                     "lacp_rate": "fast",
+                     "downdelay": "200",
+                     "miimon": "100",
+                     "updelay": "200",
+                   },
+                 ('config', 'networking', 'nameservers'): [ "8.8.8.8", "8.8.4.4" ], # TODO
+                 ('config', 'networking', 'defaultGateway'): {
+                     "address": self.default_gateway,
+                     "interface": "bond0",
+                 },
+                 ('config', 'networking', 'defaultGateway6'): {
+                     "address": self.default_gatewayv6,
+                     "interface": "bond0",
+                 },
+                 ('config', 'networking', 'dhcpcd', 'enable'): False,
+                 ('config', 'networking', 'interfaces', 'bond0'): {
+                     "useDHCP": False,
+                     "ipv4": {
+                         "addresses": [
+                             { "address": self.public_ipv4, "prefixLength": self.public_cidr },
+                             { "address": self.private_ipv4, "prefixLength": self.private_cidr },
+                         ],
+                         "routes": [
+                             {
+                                 "address": "10.0.0.0",
+                                 "prefixLength": 8,
+                                 "via": self.private_gateway,
+                             },
+                         ],
+
+                     },
+                     "ipv6": {
+                         "addresses": [
+                             { "address": self.public_ipv6, "prefixLength": self.public_cidrv6 },
+                         ],
+                     },
+                   },
+
+            })
+        elif self.plan == "g2.large.x86":
+            return Function("{ ... }", {
+                 ('config', 'boot', 'initrd', 'availableKernelModules'): [ "ata_piix", "uhci_hcd", "virtio_pci", "sr_mod", "virtio_blk" ],
+                 ('config', 'boot', 'loader', 'grub', 'devices'): [ '/dev/sda', '/dev/sdb' ],
+                 ('config', 'fileSystems', '/'): { 'label': 'nixos', 'fsType': 'ext4'},
+                 ('config', 'users', 'users', 'root', 'openssh', 'authorizedKeys', 'keys'): [public_key],
+                 ('config', 'networking', 'bonds', 'bond0', 'interfaces'): [ "enp1s0f0", "enp1s0f1"],
+                 ('config', 'boot', 'kernelParams'): [ "console=ttyS1,115200n8" ],
+                 ('config', 'boot', 'kernelModules'): [ 'kvm-intel' ],
+                 ('config', 'boot', 'loader', 'grub', 'extraConfig'): """
+                     serial --unit=0 --speed=115200 --word=8 --parity=no --stop=1
+                     terminal_output serial console
+                     terminal_input serial console
+                 """,
+                 ('config', 'networking', 'bonds', 'bond0', 'driverOptions'): {
+                     "mode": "802.3ad",
+                     "xmit_hash_policy": "layer3+4",
+                     "lacp_rate": "fast",
+                     "downdelay": "200",
+                     "miimon": "100",
+                     "updelay": "200",
+                   },
+                 ('config', 'networking', 'nameservers'): [ "8.8.8.8", "8.8.4.4" ], # TODO
+                 ('config', 'networking', 'defaultGateway'): {
+                     "address": self.default_gateway,
+                     "interface": "bond0",
+                 },
+                 ('config', 'networking', 'defaultGateway6'): {
+                     "address": self.default_gatewayv6,
+                     "interface": "bond0",
+                 },
+                 ('config', 'networking', 'dhcpcd', 'enable'): False,
+                 ('config', 'networking', 'interfaces', 'bond0'): {
+                     "useDHCP": False,
+                     "ipv4": {
+                         "addresses": [
+                             { "address": self.public_ipv4, "prefixLength": self.public_cidr },
+                             { "address": self.private_ipv4, "prefixLength": self.private_cidr },
+                         ],
+                         "routes": [
+                             {
+                                 "address": "10.0.0.0",
+                                 "prefixLength": 8,
+                                 "via": self.private_gateway,
+                             },
+                         ],
+
+                     },
+                     "ipv6": {
+                         "addresses": [
+                             { "address": self.public_ipv6, "prefixLength": self.public_cidrv6 },
+                         ],
+                     },
+                   },
+
+            })
+        else:
+            raise Exception("Plan {} not supported by nixops".format(self.plan))
+
     def get_physical_spec(self):
         if self.key_pair == None and not self.dry_run:
             raise Exception("Key Pair is not set")
@@ -116,60 +233,7 @@ class PacketState(MachineState):
             public_key = kp.public_key
         else:
             public_key = "not set"
-        return Function("{ ... }", {
-            ('config', 'boot', 'initrd', 'availableKernelModules'): [ "ata_piix", "uhci_hcd", "virtio_pci", "sr_mod", "virtio_blk" ],
-            ('config', 'boot', 'loader', 'grub', 'devices'): [ '/dev/sda', '/dev/sdb' ],
-            ('config', 'fileSystems', '/'): { 'label': 'nixos', 'fsType': 'ext4'},
-            ('config', 'users', 'users', 'root', 'openssh', 'authorizedKeys', 'keys'): [public_key],
-            ('config', 'networking', 'bonds', 'bond0', 'interfaces'): [ "enp1s0f0", "enp1s0f1"],
-            ('config', 'boot', 'kernelParams'): [ "console=ttyS1,115200n8" ],
-            ('config', 'boot', 'loader', 'grub', 'extraConfig'): """
-                serial --unit=0 --speed=115200 --word=8 --parity=no --stop=1
-                terminal_output serial console
-                terminal_input serial console
-            """,
-            ('config', 'networking', 'bonds', 'bond0', 'driverOptions'): {
-                "mode": "802.3ad",
-                "xmit_hash_policy": "layer3+4",
-                "lacp_rate": "fast",
-                "downdelay": "200",
-                "miimon": "100",
-                "updelay": "200",
-              },
-            ('config', 'networking', 'nameservers'): [ "8.8.8.8", "8.8.4.4" ], # TODO
-            ('config', 'networking', 'defaultGateway'): {
-                "address": self.default_gateway,
-                "interface": "bond0",
-            },
-            ('config', 'networking', 'defaultGateway6'): {
-                "address": self.default_gatewayv6,
-                "interface": "bond0",
-            },
-            ('config', 'networking', 'dhcpcd', 'enable'): False,
-            ('config', 'networking', 'interfaces', 'bond0'): {
-                "useDHCP": False,
-                "ipv4": {
-                    "addresses": [
-                        { "address": self.public_ipv4, "prefixLength": self.public_cidr },
-                        { "address": self.private_ipv4, "prefixLength": self.private_cidr },
-                    ],
-                    "routes": [
-                        {
-                            "address": "10.0.0.0",
-                            "prefixLength": 8,
-                            "via": self.private_gateway,
-                        },
-                    ],
-
-                },
-                "ipv6": {
-                    "addresses": [
-                        { "address": self.public_ipv6, "prefixLength": self.public_cidrv6 },
-                    ],
-                },
-              },
-
-        })
+        self.get_physical_spec_from_plan(public_key)
 
 
     def create_after(self, resources, defn):
