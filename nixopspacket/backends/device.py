@@ -288,6 +288,8 @@ class PacketState(MachineState):
         if self.state != self.UP:
             check = True
 
+        self.set_common_state(defn)
+
         if self.vm_id and check:
             try:
                 instance = self._conn.get_device(self.vm_id)
