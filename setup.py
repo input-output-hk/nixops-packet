@@ -10,7 +10,7 @@ setup(name='nixops-packet',
       url='https://github.com/input-output-hk/nixops-packet',
       author='Samuel Leathers',
       author_email='samuel.leathers@iohk.io',
-      packages=[ 'nixopspacket', 'nixopspacket.backends', 'nixopspacket.resources' ],
+      packages=[ 'nixopspacket', 'nixopspacket.backends', 'nixopspacket.resources', 'nixopspacket.parser' ],
       entry_points={'nixops': ['packet = nixopspacket.plugin']},
       py_modules=['plugin']
 )
