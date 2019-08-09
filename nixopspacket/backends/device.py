@@ -165,19 +165,28 @@ class PacketState(MachineState):
                    },
 
             })
-        if self.plan == "c2.medium.x86":
+        elif self.plan == "c2.medium.x86":
             return Function("{ ... }", {
-                 ('config', 'boot', 'initrd', 'availableKernelModules'): [ "xhci_pci", "ahci", "mpt3sas", "sd_mod"],
-                 ('config', 'boot', 'loader', 'grub', 'version'): 2,
-                 ('config', 'fileSystems', '/'): { 'label': 'nixos', 'fsType': 'ext4'},
-                 ('config', 'users', 'users', 'root', 'openssh', 'authorizedKeys', 'keys'): [public_key],
-                 ('config', 'networking', 'bonds', 'bond0', 'interfaces'): [ "enp1s0f0", "enp1s0f1"],
+                 ('config', 'boot', 'initrd', 'availableKernelModules'): [ "xhci_pci", "ahci", "mpt3sas", "sd_mod" ],
+                 ('config', 'boot', 'kernelModules'): [ "kvm-amd", "dm_multipath", "dm_round_robin", "ipmi_watchdog" ],
                  ('config', 'boot', 'kernelParams'): [ "console=ttyS1,115200n8" ],
+                 ('config', 'boot', 'loader', 'efi', 'efiSysMountPoint'): "/boot/efi",
+                 ('config', 'boot', 'loader', 'efi', 'canTouchEfiVariables'): False,
+                 ('config', 'boot', 'loader', 'grub', 'enable'): True,
+                 ('config', 'boot', 'loader', 'grub', 'version'): 2,
+                 ('config', 'boot', 'loader', 'grub', 'efiSupport'): True,
+                 ('config', 'boot', 'loader', 'grub', 'device'): "nodev",
+                 ('config', 'boot', 'loader', 'grub', 'efiInstallAsRemovable'): True,
                  ('config', 'boot', 'loader', 'grub', 'extraConfig'): """
                      serial --unit=0 --speed=115200 --word=8 --parity=no --stop=1
                      terminal_output serial console
                      terminal_input serial console
                  """,
+                 ('config', 'boot', 'loader', 'systemd-boot', 'enable'): False,
+                 ('config', 'fileSystems', '/'): { "label": "nixos", "fsType": "ext4" },
+                 ('config', 'fileSystems', '/boot/efi'): { "device": "/dev/sda1", "fsType": "vfat" },
+                 ('config', 'hardware', 'enableAllFirmware'): True,
+                 ('config', 'networking', 'bonds', 'bond0', 'interfaces'): [ "enp1s0f0", "enp1s0f1"],
                  ('config', 'networking', 'bonds', 'bond0', 'driverOptions'): {
                      "mode": "802.3ad",
                      "xmit_hash_policy": "layer3+4",
@@ -185,8 +194,7 @@ class PacketState(MachineState):
                      "downdelay": "200",
                      "miimon": "100",
                      "updelay": "200",
-                   },
-                 ('config', 'networking', 'nameservers'): [ "8.8.8.8", "8.8.4.4" ], # TODO
+                 },
                  ('config', 'networking', 'defaultGateway'): {
                      "address": self.default_gateway,
                      "interface": "bond0",
@@ -217,8 +225,10 @@ class PacketState(MachineState):
                              { "address": self.public_ipv6, "prefixLength": self.public_cidrv6 },
                          ],
                      },
-                   },
-
+                 },
+                 ('config', 'networking', 'nameservers'): [ "8.8.8.8", "8.8.4.4" ], # TODO
+                 ('config', 'swapDevices'): [ { "label": "swap" } ],
+                 ('config', 'users', 'users', 'root', 'openssh', 'authorizedKeys', 'keys'): [public_key],
             })
         elif self.plan == "g2.large.x86":
             return Function("{ ... }", {
