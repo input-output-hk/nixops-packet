@@ -227,6 +227,7 @@ class PacketState(MachineState):
                      },
                  },
                  ('config', 'networking', 'nameservers'): [ "8.8.8.8", "8.8.4.4" ], # TODO
+                 ('config', 'nixpkgs', 'config', 'allowUnfree'): True,
                  ('config', 'swapDevices'): [ { "label": "swap" } ],
                  ('config', 'users', 'users', 'root', 'openssh', 'authorizedKeys', 'keys'): [public_key],
             })
