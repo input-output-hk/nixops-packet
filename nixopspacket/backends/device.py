@@ -291,7 +291,7 @@ class PacketState(MachineState):
             raise Exception("Plan {} not supported by nixops".format(self.plan))
 
     def get_physical_spec(self):
-        if self.key_pair == None and not self.dry_run:
+        if self.key_pair == None:
             raise Exception("Key Pair is not set")
         kp = self.findKeypairResource(self.key_pair)
         if kp:
