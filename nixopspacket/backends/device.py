@@ -109,13 +109,12 @@ class PacketState(MachineState):
         sys.exit(ssh.run_command(command, flags, check=False, logged=False,
                                allow_ssh_args=True, user=user))
 
-    def get_physical_spec_from_plan(self, public_key):
+    def get_physical_spec_from_plan(self):
         if self.plan == "c1.small.x86":
             return Function("{ ... }", {
                  ('config', 'boot', 'initrd', 'availableKernelModules'): [ "ata_piix", "uhci_hcd", "virtio_pci", "sr_mod", "virtio_blk" ],
                  ('config', 'boot', 'loader', 'grub', 'devices'): [ '/dev/sda', '/dev/sdb' ],
                  ('config', 'fileSystems', '/'): { 'label': 'nixos', 'fsType': 'ext4'},
-                 ('config', 'users', 'users', 'root', 'openssh', 'authorizedKeys', 'keys'): [public_key],
                  ('config', 'networking', 'bonds', 'bond0', 'interfaces'): [ "enp1s0f0", "enp1s0f1"],
                  ('config', 'boot', 'kernelParams'): [ "console=ttyS1,115200n8" ],
                  ('config', 'boot', 'loader', 'grub', 'extraConfig'): """
@@ -291,14 +290,7 @@ class PacketState(MachineState):
             raise Exception("Plan {} not supported by nixops".format(self.plan))
 
     def get_physical_spec(self):
-        if self.key_pair == None:
-            raise Exception("Key Pair is not set")
-        kp = self.findKeypairResource(self.key_pair)
-        if kp:
-            public_key = kp.public_key
-        else:
-            public_key = "not set"
-        return self.get_physical_spec_from_plan(public_key)
+        return self.get_physical_spec_from_plan()
 
 
     def create_after(self, resources, defn):
