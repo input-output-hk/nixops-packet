@@ -284,8 +284,6 @@ class PacketState(MachineState):
                    },
 
             })
-        else:
-            raise Exception("Plan {} not supported by nixops".format(self.plan))
 
     def get_physical_spec(self):
         return self.get_physical_spec_from_plan()
