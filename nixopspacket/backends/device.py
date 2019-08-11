@@ -228,14 +228,12 @@ class PacketState(MachineState):
                  ('config', 'networking', 'nameservers'): [ "8.8.8.8", "8.8.4.4" ], # TODO
                  ('config', 'nixpkgs', 'config', 'allowUnfree'): True,
                  ('config', 'swapDevices'): [ { "label": "swap" } ],
-                 ('config', 'users', 'users', 'root', 'openssh', 'authorizedKeys', 'keys'): [public_key],
             })
         elif self.plan == "g2.large.x86":
             return Function("{ ... }", {
                  ('config', 'boot', 'initrd', 'availableKernelModules'): [ "ata_piix", "uhci_hcd", "virtio_pci", "sr_mod", "virtio_blk" ],
                  ('config', 'boot', 'loader', 'grub', 'devices'): [ '/dev/sda' ],
                  ('config', 'fileSystems', '/'): { 'label': 'nixos', 'fsType': 'ext4'},
-                 ('config', 'users', 'users', 'root', 'openssh', 'authorizedKeys', 'keys'): [public_key],
                  ('config', 'networking', 'bonds', 'bond0', 'interfaces'): [ "enp96s0f0", "enp96s0f1"],
                  ('config', 'boot', 'kernelParams'): [ "console=ttyS1,115200n8" ],
                  ('config', 'boot', 'kernelModules'): [ 'kvm-intel' ],
