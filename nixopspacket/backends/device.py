@@ -34,6 +34,10 @@ class PacketDefinition(MachineDefinition):
         self.plan = config["packet"]["plan"]
         self.project = config["packet"]["project"]
         self.nixosVersion = config["packet"]["nixosVersion"]
+        if config["packet"]["reservationId"] is None:
+            self.reservationId = False
+        else:
+            self.reservationId = config["packet"]["reservationId"]
         self.spotInstance = config["packet"]["spotInstance"]
         self.spotPriceMax = config["packet"]["spotPriceMax"]
 
@@ -109,12 +113,13 @@ class PacketState(MachineState):
         sys.exit(ssh.run_command(command, flags, check=False, logged=False,
                                allow_ssh_args=True, user=user))
 
-    def get_physical_spec_from_plan(self):
+    def get_physical_spec_from_plan(self, public_key):
         if self.plan == "c1.small.x86":
             return Function("{ ... }", {
                  ('config', 'boot', 'initrd', 'availableKernelModules'): [ "ata_piix", "uhci_hcd", "virtio_pci", "sr_mod", "virtio_blk" ],
                  ('config', 'boot', 'loader', 'grub', 'devices'): [ '/dev/sda', '/dev/sdb' ],
                  ('config', 'fileSystems', '/'): { 'label': 'nixos', 'fsType': 'ext4'},
+                 ('config', 'users', 'users', 'root', 'openssh', 'authorizedKeys', 'keys'): [public_key],
                  ('config', 'networking', 'bonds', 'bond0', 'interfaces'): [ "enp1s0f0", "enp1s0f1"],
                  ('config', 'boot', 'kernelParams'): [ "console=ttyS1,115200n8" ],
                  ('config', 'boot', 'loader', 'grub', 'extraConfig'): """
@@ -228,12 +233,14 @@ class PacketState(MachineState):
                  ('config', 'networking', 'nameservers'): [ "8.8.8.8", "8.8.4.4" ], # TODO
                  ('config', 'nixpkgs', 'config', 'allowUnfree'): True,
                  ('config', 'swapDevices'): [ { "label": "swap" } ],
+                 ('config', 'users', 'users', 'root', 'openssh', 'authorizedKeys', 'keys'): [public_key],
             })
         elif self.plan == "g2.large.x86":
             return Function("{ ... }", {
                  ('config', 'boot', 'initrd', 'availableKernelModules'): [ "ata_piix", "uhci_hcd", "virtio_pci", "sr_mod", "virtio_blk" ],
                  ('config', 'boot', 'loader', 'grub', 'devices'): [ '/dev/sda' ],
                  ('config', 'fileSystems', '/'): { 'label': 'nixos', 'fsType': 'ext4'},
+                 ('config', 'users', 'users', 'root', 'openssh', 'authorizedKeys', 'keys'): [public_key],
                  ('config', 'networking', 'bonds', 'bond0', 'interfaces'): [ "enp96s0f0", "enp96s0f1"],
                  ('config', 'boot', 'kernelParams'): [ "console=ttyS1,115200n8" ],
                  ('config', 'boot', 'kernelModules'): [ 'kvm-intel' ],
@@ -291,7 +298,14 @@ class PacketState(MachineState):
             })
 
     def get_physical_spec(self):
-        return self.get_physical_spec_from_plan()
+        if self.key_pair == None and self.plan != None:
+            raise Exception("Key Pair is not set")
+        kp = self.findKeypairResource(self.key_pair)
+        if kp:
+            public_key = kp.public_key
+        else:
+            public_key = "not set"
+        return self.get_physical_spec_from_plan(public_key)
 
 
     def create_after(self, resources, defn):
@@ -319,12 +333,14 @@ class PacketState(MachineState):
 
 
     def destroy(self, wipe=False):
-        self.connect()
+        if self.plan != None:
+            self.connect()
         if not self.depl.logger.confirm("are you sure you want to destroy Packet.Net machine ‘{0}’?".format(self.name)): return False
         self.log("destroying instance {}".format(self.vm_id))
         try:
-            instance = self._conn.get_device(self.vm_id)
-            instance.delete()
+            if self.vm_id != None:
+                instance = self._conn.get_device(self.vm_id)
+                instance.delete()
         except packet.baseapi.Error as e:
             if e.args[0] == "Error 422: Cannot delete a device while it is provisioning":
                 self.state = self.packetstate2state(instance.state)
@@ -426,6 +442,7 @@ class PacketState(MachineState):
             operating_system=defn.nixosVersion,
             user_ssh_keys=[],
             project_ssh_keys = [ kp.keypair_id ],
+            hardware_reservation_id = defn.reservationId,
             spot_instance = defn.spotInstance,
             spot_price_max = defn.spotPriceMax,
             tags = packet_utils.dict2tags(tags)

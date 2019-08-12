@@ -54,6 +54,12 @@ in
           NixOS version to install
         '';
       };
+      reservationId = mkOption {
+        example = "next-available";
+        default = null;
+        type = types.nullOr types.str;
+        description = "Reservation ID for using a reserved instance.";
+      };
       spotInstance = mkOption {
         default = false;
         type = types.bool;
@@ -63,7 +69,7 @@ in
       };
       spotPriceMax = mkOption {
         default = "-1.0";
-        type = types.string;
+        type = types.str;
         description = ''
           Price (in dollars per hour) to use for spot instances request for the machine.
         '';
