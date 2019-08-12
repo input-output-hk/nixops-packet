@@ -284,6 +284,11 @@ class PacketState(MachineState):
                    },
 
             })
+        elif self.plan == None:
+            return Function("{ ... }", {
+                 ('config', 'boot', 'loader', 'grub', 'devices'): [ 'nodev' ],
+                 ('config', 'fileSystems', '/'): { 'label': 'nixos', 'fsType': 'ext4'},
+            })
 
     def get_physical_spec(self):
         return self.get_physical_spec_from_plan()
