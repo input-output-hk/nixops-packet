@@ -436,7 +436,7 @@ class PacketState(MachineState):
         self.log("keyid: {0}".format(kp.keypair_id))
         instance = self._conn.create_device(
             project_id=defn.project,
-            hostname = "{0}.{1}".format(self.name, self.depl.description),
+            hostname = "{0}".format(self.name),
             plan=defn.plan,
             facility=[ defn.facility ],
             operating_system=defn.nixosVersion,
