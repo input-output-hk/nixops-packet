@@ -17,7 +17,7 @@ import nixopspacket.utils as packet_utils
 import nixopspacket.resources
 import socket
 import packet
-from json import dumps
+import json
 import getpass
 
 class PacketDefinition(MachineDefinition):
@@ -54,6 +54,8 @@ class PacketState(MachineState):
     accessKeyId = nixops.util.attr_property("packet.accessKeyId", None)
     key_pair = nixops.util.attr_property("packet.keyPair", None)
     plan = nixops.util.attr_property("packet.plan", None)
+    iflist = nixops.util.attr_property("packet.iflist", None)
+    metadata = nixops.util.attr_property("packet.metadata", None)
     public_ipv4 = nixops.util.attr_property("publicIpv4", None)
     public_ipv6 = nixops.util.attr_property("publicIpv6", None)
     private_ipv4 = nixops.util.attr_property("privateIpv4", None)
@@ -120,7 +122,7 @@ class PacketState(MachineState):
                  ('config', 'boot', 'loader', 'grub', 'devices'): [ '/dev/sda', '/dev/sdb' ],
                  ('config', 'fileSystems', '/'): { 'label': 'nixos', 'fsType': 'ext4'},
                  ('config', 'users', 'users', 'root', 'openssh', 'authorizedKeys', 'keys'): [public_key],
-                 ('config', 'networking', 'bonds', 'bond0', 'interfaces'): [ "enp1s0f0", "enp1s0f1"],
+                 ('config', 'networking', 'bonds', 'bond0', 'interfaces'): json.loads(self.iflist),
                  ('config', 'boot', 'kernelParams'): [ "console=ttyS1,115200n8" ],
                  ('config', 'boot', 'loader', 'grub', 'extraConfig'): """
                      serial --unit=0 --speed=115200 --word=8 --parity=no --stop=1
@@ -190,7 +192,7 @@ class PacketState(MachineState):
                  ('config', 'fileSystems', '/'): { "label": "nixos", "fsType": "ext4" },
                  ('config', 'fileSystems', '/boot/efi'): { "device": "/dev/sda1", "fsType": "vfat" },
                  ('config', 'hardware', 'enableAllFirmware'): True,
-                 ('config', 'networking', 'bonds', 'bond0', 'interfaces'): [ "enp1s0f0", "enp1s0f1"],
+                 ('config', 'networking', 'bonds', 'bond0', 'interfaces'): json.loads(self.iflist),
                  ('config', 'networking', 'bonds', 'bond0', 'driverOptions'): {
                      "mode": "802.3ad",
                      "xmit_hash_policy": "layer3+4",
@@ -241,7 +243,7 @@ class PacketState(MachineState):
                  ('config', 'boot', 'loader', 'grub', 'devices'): [ '/dev/sda' ],
                  ('config', 'fileSystems', '/'): { 'label': 'nixos', 'fsType': 'ext4'},
                  ('config', 'users', 'users', 'root', 'openssh', 'authorizedKeys', 'keys'): [public_key],
-                 ('config', 'networking', 'bonds', 'bond0', 'interfaces'): [ "enp96s0f0", "enp96s0f1"],
+                 ('config', 'networking', 'bonds', 'bond0', 'interfaces'): json.loads(self.iflist),
                  ('config', 'boot', 'kernelParams'): [ "console=ttyS1,115200n8" ],
                  ('config', 'boot', 'kernelModules'): [ 'kvm-intel' ],
                  ('config', 'boot', 'loader', 'grub', 'extraConfig'): """
@@ -423,7 +425,6 @@ class PacketState(MachineState):
         return None
 
     def create_device(self, defn, check, allow_reboot, allow_recreate):
-
         self.connect()
         kp = self.findKeypairResource(defn.key_pair)
         common_tags = self.get_common_tags()
@@ -470,8 +471,23 @@ class PacketState(MachineState):
         self.update_state(instance)
         nixops.known_hosts.remove(self.public_ipv4, None)
 
-        self.log_end("{}".format(self.public_ipv4))
+        self.log("{}".format(self.public_ipv4))
         self.wait_for_ssh()
+
+        ssh = nixops.ssh_util.SSH(self.logger)
+        ssh.register_flag_fun(self.get_ssh_flags)
+        ssh.register_host_fun(lambda: self.public_ipv4)
+        user = "root"
+        command_ifdev = "ip -o link show | awk -F': ' '{print $2}' | grep -E '^e[nt]'"
+        flags, command = ssh.split_openssh_args([ command_ifdev ])
+        iflist = ssh.run_command(command, flags, check=check, logged=True, allow_ssh_args=True, user=user, capture_stdout=True)
+        self.iflist = json.dumps(iflist.splitlines())
+        self.log_end("Interface list: {}".format(self.iflist))
+        command_metadata = "curl -Ls https://metadata.packet.net/metadata"
+        flags, command = ssh.split_openssh_args([ command_metadata ])
+        metadata = ssh.run_command(command, flags, check=check, logged=True, allow_ssh_args=True, user=user, capture_stdout=True)
+        self.metadata = json.dumps(metadata)
+        self.update_state(instance)
 
     def switch_to_configuration(self, method, sync, command=None):
         res = super(PacketState, self).switch_to_configuration(method, sync, command)
