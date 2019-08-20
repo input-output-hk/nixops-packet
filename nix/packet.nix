@@ -74,6 +74,17 @@ in
           Price (in dollars per hour) to use for spot instances request for the machine.
         '';
       };
+      ipxeScriptUrl = mkOption {
+        example = "https://myhostingserver:8080/netboot.ipxe";
+        default = "";
+        type = types.str;
+        description = "If using custom iPXE booting, the URL for the iPXE server and iPXE script";
+      };
+      alwaysPxe = mkOption {
+        default = false;
+        type = types.bool;
+        description = "If using custom iPXE booting, whether to always use iPXE boot (true) or just iPXE boot on the first boot (false).";
+      };
       tags = mkOption {
         default = { };
         example = { foo = "bar"; xyzzy = "bla"; };

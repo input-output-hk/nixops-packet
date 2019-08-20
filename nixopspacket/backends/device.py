@@ -34,12 +34,20 @@ class PacketDefinition(MachineDefinition):
         self.plan = config["packet"]["plan"]
         self.project = config["packet"]["project"]
         self.nixosVersion = config["packet"]["nixosVersion"]
+        self.ipxe_script_url = config["packet"]["ipxeScriptUrl"];
+        self.always_pxe = config["packet"]["alwaysPxe"];
+        self.spotInstance = config["packet"]["spotInstance"]
+        self.spotPriceMax = config["packet"]["spotPriceMax"]
+
         if config["packet"]["reservationId"] is None:
             self.reservationId = False
         else:
             self.reservationId = config["packet"]["reservationId"]
-        self.spotInstance = config["packet"]["spotInstance"]
-        self.spotPriceMax = config["packet"]["spotPriceMax"]
+
+        if self.ipxe_script_url != "":
+            self.operating_system = "custom_ipxe"
+        else:
+            self.operating_system = self.nixosVersion
 
     def show_type(self):
         return "packet [something]"
@@ -440,13 +448,15 @@ class PacketState(MachineState):
             hostname = "{0}".format(self.name),
             plan=defn.plan,
             facility=[ defn.facility ],
-            operating_system=defn.nixosVersion,
+            operating_system=defn.operating_system,
             user_ssh_keys=[],
             project_ssh_keys = [ kp.keypair_id ],
             hardware_reservation_id = defn.reservationId,
             spot_instance = defn.spotInstance,
             spot_price_max = defn.spotPriceMax,
-            tags = packet_utils.dict2tags(tags)
+            tags = packet_utils.dict2tags(tags),
+            ipxe_script_url = defn.ipxe_script_url,
+            always_pxe = defn.always_pxe,
         )
 
         self.vm_id = instance.id
@@ -478,8 +488,8 @@ class PacketState(MachineState):
         ssh.register_flag_fun(self.get_ssh_flags)
         ssh.register_host_fun(lambda: self.public_ipv4)
         user = "root"
-        command_ifdev = "ip -o link show | awk -F': ' '{print $2}' | grep -E '^e[nt]'"
-        flags, command = ssh.split_openssh_args([ command_ifdev ])
+        command_iflist = "ip -o link show | awk -F': ' '{print $2}' | grep -E '^e[nt]'"
+        flags, command = ssh.split_openssh_args([ command_iflist ])
         iflist = ssh.run_command(command, flags, check=check, logged=True, allow_ssh_args=True, user=user, capture_stdout=True)
         self.iflist = json.dumps(iflist.splitlines())
         self.log_end("Interface list: {}".format(self.iflist))
