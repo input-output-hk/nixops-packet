@@ -63,6 +63,7 @@ class PacketState(MachineState):
     key_pair = nixops.util.attr_property("packet.keyPair", None)
     plan = nixops.util.attr_property("packet.plan", None)
     iflist = nixops.util.attr_property("packet.iflist", None)
+    efiBootDev = nixops.util.attr_property("packet.efiBootDev", None)
     metadata = nixops.util.attr_property("packet.metadata", None)
     public_ipv4 = nixops.util.attr_property("publicIpv4", None)
     public_ipv6 = nixops.util.attr_property("publicIpv6", None)
@@ -198,7 +199,7 @@ class PacketState(MachineState):
                  """,
                  ('config', 'boot', 'loader', 'systemd-boot', 'enable'): False,
                  ('config', 'fileSystems', '/'): { "label": "nixos", "fsType": "ext4" },
-                 ('config', 'fileSystems', '/boot/efi'): { "device": "/dev/sda1", "fsType": "vfat" },
+                 ('config', 'fileSystems', '/boot/efi'): { "device": "{}".format(self.efiBootDev), "fsType": "vfat" },
                  ('config', 'hardware', 'enableAllFirmware'): True,
                  ('config', 'networking', 'bonds', 'bond0', 'interfaces'): json.loads(self.iflist),
                  ('config', 'networking', 'bonds', 'bond0', 'driverOptions'): {
@@ -492,7 +493,16 @@ class PacketState(MachineState):
         flags, command = ssh.split_openssh_args([ command_iflist ])
         iflist = ssh.run_command(command, flags, check=check, logged=True, allow_ssh_args=True, user=user, capture_stdout=True)
         self.iflist = json.dumps(iflist.splitlines())
-        self.log_end("Interface list: {}".format(self.iflist))
+        self.log("Interface list: {}".format(self.iflist))
+        command_efiBootDev = "lsblk -o uuid,mountpoint | grep '/boot/efi' | cut -d' ' -f1 | tr -d '\n'"
+        flags, command = ssh.split_openssh_args([ command_efiBootDev ])
+        efiBootDev = ssh.run_command(command, flags, check=check, logged=True, allow_ssh_args=True, user=user, capture_stdout=True)
+        if efiBootDev == "":
+            self.efiBootDev = None;
+            self.log_end("/boot/efi device: none")
+        else:
+            self.efiBootDev = "/dev/disk/by-uuid/" + efiBootDev
+            self.log_end("/boot/efi device: {}".format(self.efiBootDev))
         command_metadata = "curl -Ls https://metadata.packet.net/metadata"
         flags, command = ssh.split_openssh_args([ command_metadata ])
         metadata = ssh.run_command(command, flags, check=check, logged=True, allow_ssh_args=True, user=user, capture_stdout=True)
@@ -504,4 +514,3 @@ class PacketState(MachineState):
         if res == 0:
             self._ssh_public_key_deployed = True
         return res
-
