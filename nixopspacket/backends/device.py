@@ -452,14 +452,14 @@ class PacketState(MachineState):
             ssh.register_flag_fun(self.get_ssh_flags)
             ssh.register_host_fun(lambda: self.public_ipv4)
             if self.iflist is None:
-                self.update_iflist(ssh)
+                self.update_iflist(ssh, check)
             if self.metadata is None:
-                self.update_metadata(ssh)
+                self.update_metadata(ssh, check)
 
         if not self.vm_id:
             self.create_device(defn, check, allow_reboot, allow_recreate)
 
-    def update_iflist(self, ssh):
+    def update_iflist(self, ssh, check):
         user = "root"
         command_iflist = "ip -o link show | awk -F': ' '{print $2}' | grep -E '^e[nt]'"
         flags, command = ssh.split_openssh_args([ command_iflist ])
@@ -467,7 +467,7 @@ class PacketState(MachineState):
         self.iflist = json.dumps(iflist.splitlines())
         self.log("Interface list: {}".format(self.iflist))
 
-    def update_metadata(self, ssh):
+    def update_metadata(self, ssh, check):
         user = "root"
         command_metadata = "curl -Ls https://metadata.packet.net/metadata"
         flags, command = ssh.split_openssh_args([ command_metadata ])
