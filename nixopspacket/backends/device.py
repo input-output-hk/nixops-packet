@@ -565,7 +565,7 @@ class PacketState(MachineState):
         ssh = nixops.ssh_util.SSH(self.logger)
         ssh.register_flag_fun(self.get_ssh_flags)
         ssh.register_host_fun(lambda: self.public_ipv4)
-        self.update_iflist(ssh)
+        self.update_iflist(ssh, check)
 
         user = "root"
         command_efiBootDev = "lsblk -o uuid,mountpoint | grep '/boot/efi' | cut -d' ' -f1 | tr -d '\n'"
@@ -578,7 +578,7 @@ class PacketState(MachineState):
             self.efiBootDev = "/dev/disk/by-uuid/" + efiBootDev
             self.log_end("/boot/efi device: {}".format(self.efiBootDev))
 
-        self.update_metadata(ssh)
+        self.update_metadata(ssh, check)
         self.update_state(instance)
 
     def switch_to_configuration(self, method, sync, command=None):
