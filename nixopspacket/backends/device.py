@@ -447,9 +447,28 @@ class PacketState(MachineState):
 
             if instance:
                 self.update_state(instance)
+            if self.iflist is None:
+                self.update_iflist()
+            if self.metadata is None:
+                self.update_metadata()
 
         if not self.vm_id:
             self.create_device(defn, check, allow_reboot, allow_recreate)
+
+    def update_iflist(self):
+        user = "root"
+        command_iflist = "ip -o link show | awk -F': ' '{print $2}' | grep -E '^e[nt]'"
+        flags, command = ssh.split_openssh_args([ command_iflist ])
+        iflist = ssh.run_command(command, flags, check=check, logged=True, allow_ssh_args=True, user=user, capture_stdout=True)
+        self.iflist = json.dumps(iflist.splitlines())
+        self.log("Interface list: {}".format(self.iflist))
+
+    def update_metadata(self):
+        user = "root"
+        command_metadata = "curl -Ls https://metadata.packet.net/metadata"
+        flags, command = ssh.split_openssh_args([ command_metadata ])
+        metadata = ssh.run_command(command, flags, check=check, logged=True, allow_ssh_args=True, user=user, capture_stdout=True)
+        self.metadata = json.dumps(metadata)
 
     def update_state(self, instance):
         self.state = self.packetstate2state(instance.state)
@@ -542,12 +561,9 @@ class PacketState(MachineState):
         ssh = nixops.ssh_util.SSH(self.logger)
         ssh.register_flag_fun(self.get_ssh_flags)
         ssh.register_host_fun(lambda: self.public_ipv4)
+        self.update_iflist();
+
         user = "root"
-        command_iflist = "ip -o link show | awk -F': ' '{print $2}' | grep -E '^e[nt]'"
-        flags, command = ssh.split_openssh_args([ command_iflist ])
-        iflist = ssh.run_command(command, flags, check=check, logged=True, allow_ssh_args=True, user=user, capture_stdout=True)
-        self.iflist = json.dumps(iflist.splitlines())
-        self.log("Interface list: {}".format(self.iflist))
         command_efiBootDev = "lsblk -o uuid,mountpoint | grep '/boot/efi' | cut -d' ' -f1 | tr -d '\n'"
         flags, command = ssh.split_openssh_args([ command_efiBootDev ])
         efiBootDev = ssh.run_command(command, flags, check=check, logged=True, allow_ssh_args=True, user=user, capture_stdout=True)
@@ -557,10 +573,8 @@ class PacketState(MachineState):
         else:
             self.efiBootDev = "/dev/disk/by-uuid/" + efiBootDev
             self.log_end("/boot/efi device: {}".format(self.efiBootDev))
-        command_metadata = "curl -Ls https://metadata.packet.net/metadata"
-        flags, command = ssh.split_openssh_args([ command_metadata ])
-        metadata = ssh.run_command(command, flags, check=check, logged=True, allow_ssh_args=True, user=user, capture_stdout=True)
-        self.metadata = json.dumps(metadata)
+
+        self.update_metadata();
         self.update_state(instance)
 
     def switch_to_configuration(self, method, sync, command=None):
