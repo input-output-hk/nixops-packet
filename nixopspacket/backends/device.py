@@ -447,15 +447,19 @@ class PacketState(MachineState):
 
             if instance:
                 self.update_state(instance)
+
+            ssh = nixops.ssh_util.SSH(self.logger)
+            ssh.register_flag_fun(self.get_ssh_flags)
+            ssh.register_host_fun(lambda: self.public_ipv4)
             if self.iflist is None:
-                self.update_iflist()
+                self.update_iflist(ssh)
             if self.metadata is None:
-                self.update_metadata()
+                self.update_metadata(ssh)
 
         if not self.vm_id:
             self.create_device(defn, check, allow_reboot, allow_recreate)
 
-    def update_iflist(self):
+    def update_iflist(self, ssh):
         user = "root"
         command_iflist = "ip -o link show | awk -F': ' '{print $2}' | grep -E '^e[nt]'"
         flags, command = ssh.split_openssh_args([ command_iflist ])
@@ -463,7 +467,7 @@ class PacketState(MachineState):
         self.iflist = json.dumps(iflist.splitlines())
         self.log("Interface list: {}".format(self.iflist))
 
-    def update_metadata(self):
+    def update_metadata(self, ssh):
         user = "root"
         command_metadata = "curl -Ls https://metadata.packet.net/metadata"
         flags, command = ssh.split_openssh_args([ command_metadata ])
@@ -561,7 +565,7 @@ class PacketState(MachineState):
         ssh = nixops.ssh_util.SSH(self.logger)
         ssh.register_flag_fun(self.get_ssh_flags)
         ssh.register_host_fun(lambda: self.public_ipv4)
-        self.update_iflist();
+        self.update_iflist(ssh)
 
         user = "root"
         command_efiBootDev = "lsblk -o uuid,mountpoint | grep '/boot/efi' | cut -d' ' -f1 | tr -d '\n'"
@@ -574,7 +578,7 @@ class PacketState(MachineState):
             self.efiBootDev = "/dev/disk/by-uuid/" + efiBootDev
             self.log_end("/boot/efi device: {}".format(self.efiBootDev))
 
-        self.update_metadata();
+        self.update_metadata(ssh)
         self.update_state(instance)
 
     def switch_to_configuration(self, method, sync, command=None):
