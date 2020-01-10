@@ -63,6 +63,7 @@ class PacketState(MachineState):
     key_pair = nixops.util.attr_property("packet.keyPair", None)
     plan = nixops.util.attr_property("packet.plan", None)
     iflist = nixops.util.attr_property("packet.iflist", None)
+    ifmac = nixops.util.attr_property("packet.ifmac", None)
     efiBootDev = nixops.util.attr_property("packet.efiBootDev", None)
     metadata = nixops.util.attr_property("packet.metadata", None)
     public_ipv4 = nixops.util.attr_property("publicIpv4", None)
@@ -132,6 +133,7 @@ class PacketState(MachineState):
                  ('config', 'fileSystems', '/'): { 'label': 'nixos', 'fsType': 'ext4'},
                  ('config', 'users', 'users', 'root', 'openssh', 'authorizedKeys', 'keys'): [public_key],
                  ('config', 'networking', 'bonds', 'bond0', 'interfaces'): json.loads(self.iflist),
+                 ('config', 'networking', 'interfaces', 'bond0', 'macAddress'): self.ifmac,
                  ('config', 'boot', 'kernelParams'): [ "console=ttyS1,115200n8" ],
                  ('config', 'boot', 'loader', 'grub', 'extraConfig'): """
                      serial --unit=0 --speed=115200 --word=8 --parity=no --stop=1
@@ -453,6 +455,8 @@ class PacketState(MachineState):
             ssh.register_host_fun(lambda: self.public_ipv4)
             if self.iflist is None:
                 self.update_iflist(ssh, check)
+            if self.ifmac is None:
+                self.update_ifmac(ssh, check)
             if self.metadata is None:
                 self.update_metadata(ssh, check)
 
@@ -466,6 +470,14 @@ class PacketState(MachineState):
         iflist = ssh.run_command(command, flags, check=check, logged=True, allow_ssh_args=True, user=user, capture_stdout=True)
         self.iflist = json.dumps(iflist.splitlines())
         self.log("Interface list: {}".format(self.iflist))
+
+    def update_ifmac(self, ssh, check):
+        user = "root"
+        command_ifmac = "curl -s https://metadata.packet.net/metadata | grep -Po '\"interfaces\":\[{\"name\":\"p1p1\",\"mac\":\"\K.*?(?=\")'"
+        flags, command = ssh.split_openssh_args([ command_ifmac ])
+        ifmac = ssh.run_command(command, flags, check=check, logged=True, allow_ssh_args=True, user=user, capture_stdout=True)
+        self.ifmac = ifmac
+        self.log("First Interface MAC: {}".format(self.ifmac))
 
     def update_metadata(self, ssh, check):
         user = "root"
@@ -566,6 +578,7 @@ class PacketState(MachineState):
         ssh.register_flag_fun(self.get_ssh_flags)
         ssh.register_host_fun(lambda: self.public_ipv4)
         self.update_iflist(ssh, check)
+        self.update_ifmac(ssh, check)
 
         user = "root"
         command_efiBootDev = "lsblk -o uuid,mountpoint | grep '/boot/efi' | cut -d' ' -f1 | tr -d '\n'"
