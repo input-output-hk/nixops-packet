@@ -10,7 +10,7 @@ import time
 import sys
 import nixops.resources
 from nixops.backends import MachineDefinition, MachineState
-from nixops.nix_expr import Function, RawValue
+from nixops.nix_expr import Function, RawValue, nix2py
 import nixops.util
 import nixops.known_hosts
 import nixopspacket.utils as packet_utils
@@ -35,6 +35,7 @@ class PacketDefinition(MachineDefinition):
         self.project = config["packet"]["project"]
         self.nixosVersion = config["packet"]["nixosVersion"]
         self.ipxe_script_url = config["packet"]["ipxeScriptUrl"];
+        #self.customdata = config["packet"]["customdata"];
         self.always_pxe = config["packet"]["alwaysPxe"];
         self.spotInstance = config["packet"]["spotInstance"]
         self.spotPriceMax = config["packet"]["spotPriceMax"]
@@ -62,10 +63,15 @@ class PacketState(MachineState):
     accessKeyId = nixops.util.attr_property("packet.accessKeyId", None)
     key_pair = nixops.util.attr_property("packet.keyPair", None)
     plan = nixops.util.attr_property("packet.plan", None)
-    iflist = nixops.util.attr_property("packet.iflist", None)
-    ifmac = nixops.util.attr_property("packet.ifmac", None)
-    efiBootDev = nixops.util.attr_property("packet.efiBootDev", None)
+
+    #iflist = nixops.util.attr_property("packet.iflist", None)
+    #ifmac = nixops.util.attr_property("packet.mac", None)
+
+    provSystem = nixops.util.attr_property("packet.provSystem", None)
+
+    # efiBootDev = nixops.util.attr_property("packet.efiBootDev", None)
     metadata = nixops.util.attr_property("packet.metadata", None)
+
     public_ipv4 = nixops.util.attr_property("publicIpv4", None)
     public_ipv6 = nixops.util.attr_property("publicIpv6", None)
     private_ipv4 = nixops.util.attr_property("privateIpv4", None)
@@ -127,61 +133,64 @@ class PacketState(MachineState):
 
     def get_physical_spec_from_plan(self, public_key):
         if self.plan == "c1.small.x86":
-            return Function("{ ... }", {
-                 ('config', 'boot', 'initrd', 'availableKernelModules'): [ "ata_piix", "uhci_hcd", "virtio_pci", "sr_mod", "virtio_blk" ],
-                 ('config', 'boot', 'loader', 'grub', 'devices'): [ '/dev/sda', '/dev/sdb' ],
-                 ('config', 'fileSystems', '/'): { 'label': 'nixos', 'fsType': 'ext4'},
-                 ('config', 'users', 'users', 'root', 'openssh', 'authorizedKeys', 'keys'): [public_key],
-                 ('config', 'networking', 'bonds', 'bond0', 'interfaces'): json.loads(self.iflist),
-                 ('config', 'networking', 'interfaces', 'bond0', 'macAddress'): self.ifmac,
-                 ('config', 'boot', 'kernelParams'): [ "console=ttyS1,115200n8" ],
-                 ('config', 'boot', 'loader', 'grub', 'extraConfig'): """
-                     serial --unit=0 --speed=115200 --word=8 --parity=no --stop=1
-                     terminal_output serial console
-                     terminal_input serial console
-                 """,
-                 ('config', 'networking', 'bonds', 'bond0', 'driverOptions'): {
-                     "mode": "802.3ad",
-                     "xmit_hash_policy": "layer3+4",
-                     "lacp_rate": "fast",
-                     "downdelay": "200",
-                     "miimon": "100",
-                     "updelay": "200",
-                   },
-                 ('config', 'networking', 'nameservers'): [ "8.8.8.8", "8.8.4.4" ], # TODO
-                 ('config', 'networking', 'defaultGateway'): {
-                     "address": self.default_gateway,
-                     "interface": "bond0",
-                 },
-                 ('config', 'networking', 'defaultGateway6'): {
-                     "address": self.default_gatewayv6,
-                     "interface": "bond0",
-                 },
-                 ('config', 'networking', 'dhcpcd', 'enable'): False,
-                 ('config', 'networking', 'interfaces', 'bond0'): {
-                     "useDHCP": False,
-                     "ipv4": {
-                         "addresses": [
-                             { "address": self.public_ipv4, "prefixLength": self.public_cidr },
-                             { "address": self.private_ipv4, "prefixLength": self.private_cidr },
-                         ],
-                         "routes": [
-                             {
-                                 "address": "10.0.0.0",
-                                 "prefixLength": 8,
-                                 "via": self.private_gateway,
-                             },
-                         ],
+            return {
+                'config': { ('users', 'extraUsers', 'root', 'openssh', 'authorizedKeys', 'keys'): [public_key] },
+                'imports': [ nix2py(self.provSystem) ],
+            }
 
-                     },
-                     "ipv6": {
-                         "addresses": [
-                             { "address": self.public_ipv6, "prefixLength": self.public_cidrv6 },
-                         ],
-                     },
-                   },
-
-            })
+            #return Function("{ ... }", {
+            #     ('config', 'boot', 'initrd', 'availableKernelModules'): [ "ata_piix", "uhci_hcd", "virtio_pci", "sr_mod", "virtio_blk" ],
+            #     ('config', 'boot', 'loader', 'grub', 'devices'): [ '/dev/sda', '/dev/sdb' ],
+            #     ('config', 'fileSystems', '/'): { 'label': 'nixos', 'fsType': 'ext4'},
+            #     ('config', 'users', 'users', 'root', 'openssh', 'authorizedKeys', 'keys'): [public_key],
+            #     ('config', 'networking', 'bonds', 'bond0', 'interfaces'): json.loads(self.iflist),
+            #     ('config', 'networking', 'interfaces', 'bond0', 'macAddress'): self.ifmac,
+            #     ('config', 'boot', 'kernelParams'): [ "console=ttyS1,115200n8" ],
+            #     ('config', 'boot', 'loader', 'grub', 'extraConfig'): """
+            #         serial --unit=0 --speed=115200 --word=8 --parity=no --stop=1
+            #         terminal_output serial console
+            #         terminal_input serial console
+            #     """,
+            #     ('config', 'networking', 'bonds', 'bond0', 'driverOptions'): {
+            #         "mode": "802.3ad",
+            #         "xmit_hash_policy": "layer3+4",
+            #         "lacp_rate": "fast",
+            #         "downdelay": "200",
+            #         "miimon": "100",
+            #         "updelay": "200",
+            #       },
+            #     ('config', 'networking', 'nameservers'): [ "8.8.8.8", "8.8.4.4" ], # TODO
+            #     ('config', 'networking', 'defaultGateway'): {
+            #         "address": self.default_gateway,
+            #         "interface": "bond0",
+            #     },
+            #     ('config', 'networking', 'defaultGateway6'): {
+            #         "address": self.default_gatewayv6,
+            #         "interface": "bond0",
+            #     },
+            #     ('config', 'networking', 'dhcpcd', 'enable'): False,
+            #     ('config', 'networking', 'interfaces', 'bond0'): {
+            #         "useDHCP": False,
+            #         "ipv4": {
+            #             "addresses": [
+            #                 { "address": self.public_ipv4, "prefixLength": self.public_cidr },
+            #                 { "address": self.private_ipv4, "prefixLength": self.private_cidr },
+            #             ],
+            #             "routes": [
+            #                 {
+            #                     "address": "10.0.0.0",
+            #                     "prefixLength": 8,
+            #                     "via": self.private_gateway,
+            #                 },
+            #             ],
+            #         },
+            #         "ipv6": {
+            #             "addresses": [
+            #                 { "address": self.public_ipv6, "prefixLength": self.public_cidrv6 },
+            #             ],
+            #         },
+            #       },
+            #})
         elif self.plan == "t1.small.x86":
             return Function("{ ... }", {
                  ('config', 'boot', 'initrd', 'availableKernelModules'): [ "ehci_pci", "ahci", "usbhid", "sd_mod" ],
@@ -398,7 +407,6 @@ class PacketState(MachineState):
             tags.update({ "deployment_name": self.depl.name})
         return tags
 
-
     def destroy(self, wipe=False):
         if self.plan != None:
             self.connect()
@@ -453,31 +461,42 @@ class PacketState(MachineState):
             ssh = nixops.ssh_util.SSH(self.logger)
             ssh.register_flag_fun(self.get_ssh_flags)
             ssh.register_host_fun(lambda: self.public_ipv4)
-            if self.iflist is None:
-                self.update_iflist(ssh, check)
-            if self.ifmac is None:
-                self.update_ifmac(ssh, check)
+            if self.provSystem is None:
+                self.update_provSystem(ssh, check)
+            #if self.iflist is None:
+            #    self.update_iflist(ssh, check)
+            #if self.ifmac is None:
+            #    self.update_ifmac(ssh, check)
             if self.metadata is None:
                 self.update_metadata(ssh, check)
 
         if not self.vm_id:
             self.create_device(defn, check, allow_reboot, allow_recreate)
 
-    def update_iflist(self, ssh, check):
+    def update_provSystem(self, ssh, check):
         user = "root"
-        command_iflist = "ip -o link show | awk -F': ' '{print $2}' | grep -E '^e[nt]'"
-        flags, command = ssh.split_openssh_args([ command_iflist ])
-        iflist = ssh.run_command(command, flags, check=check, logged=True, allow_ssh_args=True, user=user, capture_stdout=True)
-        self.iflist = json.dumps(iflist.splitlines())
-        self.log("Interface list: {}".format(self.iflist))
+        command_provSystem = "cat /etc/nixos/packet/system.nix"
+        flags, command = ssh.split_openssh_args([ command_provSystem ])
+        provSystem = ssh.run_command(command, flags, check=check, logged=True, allow_ssh_args=True, user=user, capture_stdout=True)
+        self.provSystem = '\n'.join([line for line in provSystem.splitlines()
+                                  if not line.lstrip().startswith('#')])
+        self.log("System provisioning file captured: {}".format(self.provSystem))
 
-    def update_ifmac(self, ssh, check):
-        user = "root"
-        command_ifmac = "curl -s https://metadata.packet.net/metadata | grep -Po '\"interfaces\":\[{\"name\":\"p1p1\",\"mac\":\"\K.*?(?=\")'"
-        flags, command = ssh.split_openssh_args([ command_ifmac ])
-        ifmac = ssh.run_command(command, flags, check=check, logged=True, allow_ssh_args=True, user=user, capture_stdout=True)
-        self.ifmac = ifmac
-        self.log("First Interface MAC: {}".format(self.ifmac))
+    #def update_iflist(self, ssh, check):
+    #    user = "root"
+    #    command_iflist = "ip -o link show | awk -F': ' '{print $2}' | grep -E '^e[nt]'"
+    #    flags, command = ssh.split_openssh_args([ command_iflist ])
+    #    iflist = ssh.run_command(command, flags, check=check, logged=True, allow_ssh_args=True, user=user, capture_stdout=True)
+    #    self.iflist = json.dumps(iflist.splitlines())
+    #    self.log("Interface list: {}".format(self.iflist))
+
+    #def update_ifmac(self, ssh, check):
+    #    user = "root"
+    #    command_ifmac = "curl -s https://metadata.packet.net/metadata | grep -Po '\"interfaces\":\[{\"name\":\"p1p1\",\"mac\":\"\K.*?(?=\")'"
+    #    flags, command = ssh.split_openssh_args([ command_ifmac ])
+    #    ifmac = ssh.run_command(command, flags, check=check, logged=True, allow_ssh_args=True, user=user, capture_stdout=True)
+    #    self.ifmac = ifmac
+    #    self.log("First Interface MAC: {}".format(self.ifmac))
 
     def update_metadata(self, ssh, check):
         user = "root"
@@ -546,6 +565,7 @@ class PacketState(MachineState):
             spot_price_max = defn.spotPriceMax,
             tags = packet_utils.dict2tags(tags),
             ipxe_script_url = defn.ipxe_script_url,
+
             always_pxe = defn.always_pxe,
         )
 
@@ -577,19 +597,20 @@ class PacketState(MachineState):
         ssh = nixops.ssh_util.SSH(self.logger)
         ssh.register_flag_fun(self.get_ssh_flags)
         ssh.register_host_fun(lambda: self.public_ipv4)
-        self.update_iflist(ssh, check)
-        self.update_ifmac(ssh, check)
+        self.update_provSystem(ssh, check)
+        #self.update_iflist(ssh, check)
+        #self.update_ifmac(ssh, check)
 
-        user = "root"
-        command_efiBootDev = "lsblk -o uuid,mountpoint | grep '/boot/efi' | cut -d' ' -f1 | tr -d '\n'"
-        flags, command = ssh.split_openssh_args([ command_efiBootDev ])
-        efiBootDev = ssh.run_command(command, flags, check=check, logged=True, allow_ssh_args=True, user=user, capture_stdout=True)
-        if efiBootDev == "":
-            self.efiBootDev = None;
-            self.log_end("/boot/efi device: none")
-        else:
-            self.efiBootDev = "/dev/disk/by-uuid/" + efiBootDev
-            self.log_end("/boot/efi device: {}".format(self.efiBootDev))
+        #user = "root"
+        #command_efiBootDev = "lsblk -o uuid,mountpoint | grep '/boot/efi' | cut -d' ' -f1 | tr -d '\n'"
+        #flags, command = ssh.split_openssh_args([ command_efiBootDev ])
+        #efiBootDev = ssh.run_command(command, flags, check=check, logged=True, allow_ssh_args=True, user=user, capture_stdout=True)
+        #if efiBootDev == "":
+        #    self.efiBootDev = None;
+        #    self.log_end("/boot/efi device: none")
+        #else:
+        #    self.efiBootDev = "/dev/disk/by-uuid/" + efiBootDev
+        #    self.log_end("/boot/efi device: {}".format(self.efiBootDev))
 
         self.update_metadata(ssh, check)
         self.update_state(instance)
