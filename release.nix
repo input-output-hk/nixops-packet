@@ -10,8 +10,8 @@ let
     src = pkgs.fetchFromGitHub {
       owner = "input-output-hk";
       repo = "packet-python";
-      rev = "6d3f64cf60166a3b863957b5b305fb671ec06390";
-      sha256 = "1w9qyj13mcgldba197yb70ds88d7nfx0f46k503yl3j5by2pvqc4";
+      rev = "67eebaed55a1a199fdb64e6cd9bb75a70de6e745";
+      sha256 = "1l6cs6hp94by6ajc72sg5b2fyv62frdjn0g106656jd87ympxraz";
     };
     patches = [];
     buildInputs = old.buildInputs ++ [ pkgs.python2Packages.pytestrunner ];
