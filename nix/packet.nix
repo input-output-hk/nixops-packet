@@ -14,15 +14,15 @@ in
       accessKeyId = mkOption {
         example = "YOURAPIKEY";
         type = types.str;
-        # FIXME: describe this correctly
         description = ''
+          packet.net access key ID
         '';
       };
       facility = mkOption {
-        example = "something";
+        example = "any";
         type = types.str;
-        # FIXME: describe this correctly
         description = ''
+          packet.net facility
         '';
       };
       keyPair = mkOption {
@@ -35,20 +35,22 @@ in
         '';
       };
       plan = mkOption {
-        example = "something";
+        example = "c1.small.x86";
         type = types.str;
         description = ''
+          the instance type to launch
         '';
       };
       project = mkOption {
         example = "something";
         type = types.str;
         description = ''
+          the project the instance will be launched under
         '';
       };
       nixosVersion = mkOption {
-        example = "nixos_19_03";
-        default = "nixos_19_03";
+        example = "nixos_19_09";
+        default = "nixos_19_09";
         type = types.str;
         description = ''
           NixOS version to install
@@ -94,6 +96,13 @@ in
           Tags assigned to the instance.  Each tag name can be at most
           128 characters, and each tag value can be at most 256
           characters.  There can be at most 10 tags.
+        '';
+      };
+      customData = mkOption {
+        default = null;
+        type = types.nullOr types.attrs;
+        description = ''
+          customData passed to packet API (e.g. CPR partitioning instructions)
         '';
       };
     };
