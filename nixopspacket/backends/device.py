@@ -36,6 +36,7 @@ class PacketDefinition(MachineDefinition):
         self.nixosVersion = config["packet"]["nixosVersion"]
         self.ipxe_script_url = config["packet"]["ipxeScriptUrl"];
         self.customData = config["packet"]["customData"];
+        self.storage = config["packet"]["storage"];
         self.always_pxe = config["packet"]["alwaysPxe"];
         self.spotInstance = config["packet"]["spotInstance"]
         self.spotPriceMax = config["packet"]["spotPriceMax"]
@@ -63,15 +64,8 @@ class PacketState(MachineState):
     accessKeyId = nixops.util.attr_property("packet.accessKeyId", None)
     key_pair = nixops.util.attr_property("packet.keyPair", None)
     plan = nixops.util.attr_property("packet.plan", None)
-
-    #iflist = nixops.util.attr_property("packet.iflist", None)
-    #ifmac = nixops.util.attr_property("packet.mac", None)
-
     provSystem = nixops.util.attr_property("packet.provSystem", None)
-
-    # efiBootDev = nixops.util.attr_property("packet.efiBootDev", None)
     metadata = nixops.util.attr_property("packet.metadata", None)
-
     public_ipv4 = nixops.util.attr_property("publicIpv4", None)
     public_ipv6 = nixops.util.attr_property("publicIpv6", None)
     private_ipv4 = nixops.util.attr_property("privateIpv4", None)
@@ -86,6 +80,7 @@ class PacketState(MachineState):
         MachineState.__init__(self, depl, name, id)
         self.name = name
         self._conn = None
+        #print(self.provSystem)
 
     def get_ssh_name(self):
         retVal = None
@@ -122,7 +117,7 @@ class PacketState(MachineState):
         instance = self._conn.get_device(self.vm_id)
         return "sos.{}.packet.net".format(instance.facility['code'])
 
-    def sos_console(self):
+    def op_sos_console(self):
         ssh = nixops.ssh_util.SSH(self.logger)
         ssh.register_flag_fun(self.get_ssh_flags)
         ssh.register_host_fun(self.get_sos_ssh_name)
@@ -132,6 +127,8 @@ class PacketState(MachineState):
                                allow_ssh_args=True, user=user))
 
     def get_physical_spec_from_plan(self, public_key):
+        if self.provSystem == None:
+            raise Exception("provSystem not set for {0}, metadata {1}".format(self.public_ipv4,self.metadata))
         return {
             'config': { ('users', 'extraUsers', 'root', 'openssh', 'authorizedKeys', 'keys'): [public_key] },
             'imports': [ nix2py(self.provSystem) ],
@@ -227,15 +224,17 @@ class PacketState(MachineState):
             ssh.register_host_fun(lambda: self.public_ipv4)
             if self.provSystem is None:
                 self.update_provSystem(ssh, check)
-            #if self.iflist is None:
-            #    self.update_iflist(ssh, check)
-            #if self.ifmac is None:
-            #    self.update_ifmac(ssh, check)
             if self.metadata is None:
                 self.update_metadata(ssh, check)
 
         if not self.vm_id:
             self.create_device(defn, check, allow_reboot, allow_recreate)
+
+    def op_update_provSystem(self):
+        ssh = nixops.ssh_util.SSH(self.logger)
+        ssh.register_flag_fun(self.get_ssh_flags)
+        ssh.register_host_fun(lambda: self.public_ipv4)
+        self.update_provSystem(ssh, check=True)
 
     def update_provSystem(self, ssh, check):
         user = "root"
@@ -245,22 +244,6 @@ class PacketState(MachineState):
         self.provSystem = '\n'.join([line for line in provSystem.splitlines()
                                   if not line.lstrip().startswith('#')])
         self.log("System provisioning file captured: {}".format(self.provSystem))
-
-    #def update_iflist(self, ssh, check):
-    #    user = "root"
-    #    command_iflist = "ip -o link show | awk -F': ' '{print $2}' | grep -E '^e[nt]'"
-    #    flags, command = ssh.split_openssh_args([ command_iflist ])
-    #    iflist = ssh.run_command(command, flags, check=check, logged=True, allow_ssh_args=True, user=user, capture_stdout=True)
-    #    self.iflist = json.dumps(iflist.splitlines())
-    #    self.log("Interface list: {}".format(self.iflist))
-
-    #def update_ifmac(self, ssh, check):
-    #    user = "root"
-    #    command_ifmac = "curl -s https://metadata.packet.net/metadata | grep -Po '\"interfaces\":\[{\"name\":\"p1p1\",\"mac\":\"\K.*?(?=\")'"
-    #    flags, command = ssh.split_openssh_args([ command_ifmac ])
-    #    ifmac = ssh.run_command(command, flags, check=check, logged=True, allow_ssh_args=True, user=user, capture_stdout=True)
-    #    self.ifmac = ifmac
-    #    self.log("First Interface MAC: {}".format(self.ifmac))
 
     def update_metadata(self, ssh, check):
         user = "root"
@@ -326,6 +309,7 @@ class PacketState(MachineState):
             project_ssh_keys = [ kp.keypair_id ],
             hardware_reservation_id = defn.reservationId,
             spot_instance = defn.spotInstance,
+            storage = defn.storage,
             customdata = defn.customData,
             spot_price_max = defn.spotPriceMax,
             tags = packet_utils.dict2tags(tags),
@@ -363,20 +347,6 @@ class PacketState(MachineState):
         ssh.register_flag_fun(self.get_ssh_flags)
         ssh.register_host_fun(lambda: self.public_ipv4)
         self.update_provSystem(ssh, check)
-        #self.update_iflist(ssh, check)
-        #self.update_ifmac(ssh, check)
-
-        #user = "root"
-        #command_efiBootDev = "lsblk -o uuid,mountpoint | grep '/boot/efi' | cut -d' ' -f1 | tr -d '\n'"
-        #flags, command = ssh.split_openssh_args([ command_efiBootDev ])
-        #efiBootDev = ssh.run_command(command, flags, check=check, logged=True, allow_ssh_args=True, user=user, capture_stdout=True)
-        #if efiBootDev == "":
-        #    self.efiBootDev = None;
-        #    self.log_end("/boot/efi device: none")
-        #else:
-        #    self.efiBootDev = "/dev/disk/by-uuid/" + efiBootDev
-        #    self.log_end("/boot/efi device: {}".format(self.efiBootDev))
-
         self.update_metadata(ssh, check)
         self.update_state(instance)
 

@@ -105,6 +105,13 @@ in
           customData passed to packet API (e.g. CPR partitioning instructions)
         '';
       };
+      storage = mkOption {
+        default = null;
+        type = types.nullOr types.attrs;
+        description = ''
+          storage configuration for CPR provisioning (can only be used with hardware reservations)
+        '';
+      };
     };
   };
 
