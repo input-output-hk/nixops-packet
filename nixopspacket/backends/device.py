@@ -131,7 +131,7 @@ class PacketState(MachineState):
             raise Exception("provSystem not set for {0}, metadata {1}".format(self.public_ipv4,self.metadata))
         return {
             'config': { ('users', 'extraUsers', 'root', 'openssh', 'authorizedKeys', 'keys'): [public_key] },
-            'imports': [ nix2py(self.provSystem) ],
+            'imports': [ nix2py(self.provSystem if self.provSystem is not None else "{}") ],
         }
 
     def get_physical_spec(self):
