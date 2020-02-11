@@ -8,10 +8,10 @@ let
   version = "1.6.1" + (if officialRelease then "" else "pre${toString nixopsSrc.revCount}_${nixopsSrc.shortRev}");
   packet = pkgs.python2Packages.packet-python.overrideAttrs (old: {
     src = pkgs.fetchFromGitHub {
-      owner = "input-output-hk";
+      owner = "grahamc";
       repo = "packet-python";
-      rev = "0aa7e7e9a7009b89d09f2dfa8d32a222d89bb829";
-      sha256 = "15z869idd3h399grq61ssn0xhs24zhy7x4i63yg8xlhvar7mgvls";
+      rev = "9d9e60a2db9949162d216e5a983ff1284cec34f1";
+      sha256 = "14p1pgiabj2dj60kd2y9hmyail9s3yph8mxbymxpx6l5zfdmy2jl";
     };
     patches = [];
     buildInputs = old.buildInputs ++ [ pkgs.python2Packages.pytestrunner ];
