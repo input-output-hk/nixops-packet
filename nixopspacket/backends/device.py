@@ -42,7 +42,7 @@ class PacketDefinition(MachineDefinition):
         self.spotPriceMax = config["packet"]["spotPriceMax"]
 
         if config["packet"]["reservationId"] is None:
-            self.reservationId = False
+            self.reservationId = ""
         else:
             self.reservationId = config["packet"]["reservationId"]
 
