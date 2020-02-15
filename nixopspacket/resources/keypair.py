@@ -74,7 +74,7 @@ class PacketKeyPairState(nixops.resources.ResourceState):
 
         # Generate the key pair locally.
         if not self.public_key:
-            (private, public) = nixops.util.create_key_pair(type="rsa")
+            (private, public) = nixops.util.create_key_pair(type="ed25519")
             with self.depl._db:
                 self.public_key = public
                 self.private_key = private
