@@ -10,14 +10,14 @@ import time
 import sys
 import nixops.resources
 from nixops.backends import MachineDefinition, MachineState
-from nixops.nix_expr import Function, RawValue
+from nixops.nix_expr import Function, RawValue, nix2py
 import nixops.util
 import nixops.known_hosts
 import nixopspacket.utils as packet_utils
 import nixopspacket.resources
 import socket
 import packet
-from json import dumps
+import json
 import getpass
 
 class PacketDefinition(MachineDefinition):
@@ -34,8 +34,22 @@ class PacketDefinition(MachineDefinition):
         self.plan = config["packet"]["plan"]
         self.project = config["packet"]["project"]
         self.nixosVersion = config["packet"]["nixosVersion"]
+        self.ipxe_script_url = config["packet"]["ipxeScriptUrl"];
+        self.customData = config["packet"]["customData"];
+        self.storage = config["packet"]["storage"];
+        self.always_pxe = config["packet"]["alwaysPxe"];
         self.spotInstance = config["packet"]["spotInstance"]
         self.spotPriceMax = config["packet"]["spotPriceMax"]
+
+        if config["packet"]["reservationId"] is None:
+            self.reservationId = False
+        else:
+            self.reservationId = config["packet"]["reservationId"]
+
+        if self.ipxe_script_url != "":
+            self.operating_system = "custom_ipxe"
+        else:
+            self.operating_system = self.nixosVersion
 
     def show_type(self):
         return "packet [something]"
@@ -50,6 +64,8 @@ class PacketState(MachineState):
     accessKeyId = nixops.util.attr_property("packet.accessKeyId", None)
     key_pair = nixops.util.attr_property("packet.keyPair", None)
     plan = nixops.util.attr_property("packet.plan", None)
+    provSystem = nixops.util.attr_property("packet.provSystem", None)
+    metadata = nixops.util.attr_property("packet.metadata", None)
     public_ipv4 = nixops.util.attr_property("publicIpv4", None)
     public_ipv6 = nixops.util.attr_property("publicIpv6", None)
     private_ipv4 = nixops.util.attr_property("privateIpv4", None)
@@ -64,6 +80,7 @@ class PacketState(MachineState):
         MachineState.__init__(self, depl, name, id)
         self.name = name
         self._conn = None
+        #print(self.provSystem)
 
     def get_ssh_name(self):
         retVal = None
@@ -100,7 +117,7 @@ class PacketState(MachineState):
         instance = self._conn.get_device(self.vm_id)
         return "sos.{}.packet.net".format(instance.facility['code'])
 
-    def sos_console(self):
+    def op_sos_console(self):
         ssh = nixops.ssh_util.SSH(self.logger)
         ssh.register_flag_fun(self.get_ssh_flags)
         ssh.register_host_fun(self.get_sos_ssh_name)
@@ -110,122 +127,15 @@ class PacketState(MachineState):
                                allow_ssh_args=True, user=user))
 
     def get_physical_spec_from_plan(self, public_key):
-        if self.plan == "c1.small.x86":
-            return Function("{ ... }", {
-                 ('config', 'boot', 'initrd', 'availableKernelModules'): [ "ata_piix", "uhci_hcd", "virtio_pci", "sr_mod", "virtio_blk" ],
-                 ('config', 'boot', 'loader', 'grub', 'devices'): [ '/dev/sda', '/dev/sdb' ],
-                 ('config', 'fileSystems', '/'): { 'label': 'nixos', 'fsType': 'ext4'},
-                 ('config', 'users', 'users', 'root', 'openssh', 'authorizedKeys', 'keys'): [public_key],
-                 ('config', 'networking', 'bonds', 'bond0', 'interfaces'): [ "enp1s0f0", "enp1s0f1"],
-                 ('config', 'boot', 'kernelParams'): [ "console=ttyS1,115200n8" ],
-                 ('config', 'boot', 'loader', 'grub', 'extraConfig'): """
-                     serial --unit=0 --speed=115200 --word=8 --parity=no --stop=1
-                     terminal_output serial console
-                     terminal_input serial console
-                 """,
-                 ('config', 'networking', 'bonds', 'bond0', 'driverOptions'): {
-                     "mode": "802.3ad",
-                     "xmit_hash_policy": "layer3+4",
-                     "lacp_rate": "fast",
-                     "downdelay": "200",
-                     "miimon": "100",
-                     "updelay": "200",
-                   },
-                 ('config', 'networking', 'nameservers'): [ "8.8.8.8", "8.8.4.4" ], # TODO
-                 ('config', 'networking', 'defaultGateway'): {
-                     "address": self.default_gateway,
-                     "interface": "bond0",
-                 },
-                 ('config', 'networking', 'defaultGateway6'): {
-                     "address": self.default_gatewayv6,
-                     "interface": "bond0",
-                 },
-                 ('config', 'networking', 'dhcpcd', 'enable'): False,
-                 ('config', 'networking', 'interfaces', 'bond0'): {
-                     "useDHCP": False,
-                     "ipv4": {
-                         "addresses": [
-                             { "address": self.public_ipv4, "prefixLength": self.public_cidr },
-                             { "address": self.private_ipv4, "prefixLength": self.private_cidr },
-                         ],
-                         "routes": [
-                             {
-                                 "address": "10.0.0.0",
-                                 "prefixLength": 8,
-                                 "via": self.private_gateway,
-                             },
-                         ],
-
-                     },
-                     "ipv6": {
-                         "addresses": [
-                             { "address": self.public_ipv6, "prefixLength": self.public_cidrv6 },
-                         ],
-                     },
-                   },
-
-            })
-        elif self.plan == "g2.large.x86":
-            return Function("{ ... }", {
-                 ('config', 'boot', 'initrd', 'availableKernelModules'): [ "ata_piix", "uhci_hcd", "virtio_pci", "sr_mod", "virtio_blk" ],
-                 ('config', 'boot', 'loader', 'grub', 'devices'): [ '/dev/sda' ],
-                 ('config', 'fileSystems', '/'): { 'label': 'nixos', 'fsType': 'ext4'},
-                 ('config', 'users', 'users', 'root', 'openssh', 'authorizedKeys', 'keys'): [public_key],
-                 ('config', 'networking', 'bonds', 'bond0', 'interfaces'): [ "enp96s0f0", "enp96s0f1"],
-                 ('config', 'boot', 'kernelParams'): [ "console=ttyS1,115200n8" ],
-                 ('config', 'boot', 'kernelModules'): [ 'kvm-intel' ],
-                 ('config', 'boot', 'loader', 'grub', 'extraConfig'): """
-                     serial --unit=0 --speed=115200 --word=8 --parity=no --stop=1
-                     terminal_output serial console
-                     terminal_input serial console
-                 """,
-                 ('config', 'networking', 'bonds', 'bond0', 'driverOptions'): {
-                     "mode": "802.3ad",
-                     "xmit_hash_policy": "layer3+4",
-                     "lacp_rate": "fast",
-                     "downdelay": "200",
-                     "miimon": "100",
-                     "updelay": "200",
-                   },
-                 ('config', 'networking', 'nameservers'): [ "8.8.8.8", "8.8.4.4" ], # TODO
-                 ('config', 'networking', 'defaultGateway'): {
-                     "address": self.default_gateway,
-                     "interface": "bond0",
-                 },
-                 ('config', 'networking', 'defaultGateway6'): {
-                     "address": self.default_gatewayv6,
-                     "interface": "bond0",
-                 },
-                 ('config', 'networking', 'dhcpcd', 'enable'): False,
-                 ('config', 'networking', 'interfaces', 'bond0'): {
-                     "useDHCP": False,
-                     "ipv4": {
-                         "addresses": [
-                             { "address": self.public_ipv4, "prefixLength": self.public_cidr },
-                             { "address": self.private_ipv4, "prefixLength": self.private_cidr },
-                         ],
-                         "routes": [
-                             {
-                                 "address": "10.0.0.0",
-                                 "prefixLength": 8,
-                                 "via": self.private_gateway,
-                             },
-                         ],
-
-                     },
-                     "ipv6": {
-                         "addresses": [
-                             { "address": self.public_ipv6, "prefixLength": self.public_cidrv6 },
-                         ],
-                     },
-                   },
-
-            })
-        else:
-            raise Exception("Plan {} not supported by nixops".format(self.plan))
+        if self.provSystem == None:
+            raise Exception("provSystem not set for {0}, metadata {1}".format(self.public_ipv4,self.metadata))
+        return {
+            'config': { ('users', 'extraUsers', 'root', 'openssh', 'authorizedKeys', 'keys'): [public_key] },
+            'imports': [ nix2py(self.provSystem if self.provSystem is not None else "{}") ],
+        }
 
     def get_physical_spec(self):
-        if self.key_pair == None and not self.dry_run:
+        if self.key_pair == None and self.plan != None:
             raise Exception("Key Pair is not set")
         kp = self.findKeypairResource(self.key_pair)
         if kp:
@@ -258,14 +168,15 @@ class PacketState(MachineState):
             tags.update({ "deployment_name": self.depl.name})
         return tags
 
-
     def destroy(self, wipe=False):
-        self.connect()
+        if self.plan != None:
+            self.connect()
         if not self.depl.logger.confirm("are you sure you want to destroy Packet.Net machine ‘{0}’?".format(self.name)): return False
         self.log("destroying instance {}".format(self.vm_id))
         try:
-            instance = self._conn.get_device(self.vm_id)
-            instance.delete()
+            if self.vm_id != None:
+                instance = self._conn.get_device(self.vm_id)
+                instance.delete()
         except packet.baseapi.Error as e:
             if e.args[0] == "Error 422: Cannot delete a device while it is provisioning":
                 self.state = self.packetstate2state(instance.state)
@@ -308,8 +219,38 @@ class PacketState(MachineState):
             if instance:
                 self.update_state(instance)
 
+            ssh = nixops.ssh_util.SSH(self.logger)
+            ssh.register_flag_fun(self.get_ssh_flags)
+            ssh.register_host_fun(lambda: self.public_ipv4)
+            if self.provSystem is None:
+                self.update_provSystem(ssh, check)
+            if self.metadata is None:
+                self.update_metadata(ssh, check)
+
         if not self.vm_id:
             self.create_device(defn, check, allow_reboot, allow_recreate)
+
+    def op_update_provSystem(self):
+        ssh = nixops.ssh_util.SSH(self.logger)
+        ssh.register_flag_fun(self.get_ssh_flags)
+        ssh.register_host_fun(lambda: self.public_ipv4)
+        self.update_provSystem(ssh, check=True)
+
+    def update_provSystem(self, ssh, check):
+        user = "root"
+        command_provSystem = "cat /etc/nixos/packet/system.nix"
+        flags, command = ssh.split_openssh_args([ command_provSystem ])
+        provSystem = ssh.run_command(command, flags, check=check, logged=True, allow_ssh_args=True, user=user, capture_stdout=True)
+        self.provSystem = '\n'.join([line for line in provSystem.splitlines()
+                                  if not line.lstrip().startswith('#')])
+        self.log("System provisioning file captured: {}".format(self.provSystem))
+
+    def update_metadata(self, ssh, check):
+        user = "root"
+        command_metadata = "curl -Ls https://metadata.packet.net/metadata"
+        flags, command = ssh.split_openssh_args([ command_metadata ])
+        metadata = ssh.run_command(command, flags, check=check, logged=True, allow_ssh_args=True, user=user, capture_stdout=True)
+        self.metadata = json.dumps(metadata)
 
     def update_state(self, instance):
         self.state = self.packetstate2state(instance.state)
@@ -348,7 +289,6 @@ class PacketState(MachineState):
         return None
 
     def create_device(self, defn, check, allow_reboot, allow_recreate):
-
         self.connect()
         kp = self.findKeypairResource(defn.key_pair)
         common_tags = self.get_common_tags()
@@ -361,15 +301,21 @@ class PacketState(MachineState):
         self.log("keyid: {0}".format(kp.keypair_id))
         instance = self._conn.create_device(
             project_id=defn.project,
-            hostname = "{0}.{1}".format(self.name, self.depl.description),
+            hostname = "{0}".format(self.name),
             plan=defn.plan,
             facility=[ defn.facility ],
-            operating_system=defn.nixosVersion,
+            operating_system=defn.operating_system,
             user_ssh_keys=[],
             project_ssh_keys = [ kp.keypair_id ],
+            hardware_reservation_id = defn.reservationId,
             spot_instance = defn.spotInstance,
+            storage = defn.storage,
+            customdata = defn.customData,
             spot_price_max = defn.spotPriceMax,
-            tags = packet_utils.dict2tags(tags)
+            tags = packet_utils.dict2tags(tags),
+            ipxe_script_url = defn.ipxe_script_url,
+
+            always_pxe = defn.always_pxe,
         )
 
         self.vm_id = instance.id
@@ -394,12 +340,18 @@ class PacketState(MachineState):
         self.update_state(instance)
         nixops.known_hosts.remove(self.public_ipv4, None)
 
-        self.log_end("{}".format(self.public_ipv4))
+        self.log("{}".format(self.public_ipv4))
         self.wait_for_ssh()
+
+        ssh = nixops.ssh_util.SSH(self.logger)
+        ssh.register_flag_fun(self.get_ssh_flags)
+        ssh.register_host_fun(lambda: self.public_ipv4)
+        self.update_provSystem(ssh, check)
+        self.update_metadata(ssh, check)
+        self.update_state(instance)
 
     def switch_to_configuration(self, method, sync, command=None):
         res = super(PacketState, self).switch_to_configuration(method, sync, command)
         if res == 0:
             self._ssh_public_key_deployed = True
         return res
-

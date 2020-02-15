@@ -33,6 +33,11 @@ def parser(parser, subparsers):
     plugin_command.add_argument('machine', metavar='MACHINE', help='identifier of the machine')
     nixops.script_defs.add_common_deployment_options(plugin_command)
 
+    plugin_command = nixops.script_defs.add_subparser(plugin_cmd_subparsers, 'update-provision', help='pull an updated system.nix from a provisioned system')
+    plugin_command.set_defaults(op=nixopspacket.parser.parse_defs.op_update_provision)
+    plugin_command.add_argument('machine', metavar='MACHINE', help='identifier of the machine')
+    nixops.script_defs.add_common_deployment_options(plugin_command)
+
 #    plugin_command = plugin_cmd_subparsers.add_parser('foo', help='execute command "foo"')
 #    plugin_command.set_defaults(op=nixopspacket.parser.parse_defs.op_foo)
 #    plugin_command.add_argument('--verbose', '-v', action='store_true', help='Provide extra foo information')
