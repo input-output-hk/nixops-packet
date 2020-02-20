@@ -1,1 +1,1 @@
-import keypair
+from . import keypair
