@@ -65,6 +65,10 @@ class PacketKeyPairState(nixops.resources.ResourceState):
             return
         self._conn = packet_utils.connect(self.access_key_id)
 
+    def _connection(self):
+        self.connect()
+        return self._conn
+
     def create(self, defn, check, allow_reboot, allow_recreate):
 
         # TODO: Fix Me
@@ -83,10 +87,8 @@ class PacketKeyPairState(nixops.resources.ResourceState):
         # Upload the public key to Packet.net.
         if check or self.state != self.UP:
 
-            self.connect()
-
             try:
-                kp = self._conn.get_ssh_key(self.keypair_id)
+                kp = self._connection().get_ssh_key(self.keypair_id)
             except packet.baseapi.Error as e:
                 if e.args[0] == "Error 404: Not found":
                     kp = None
@@ -98,7 +100,7 @@ class PacketKeyPairState(nixops.resources.ResourceState):
                 if kp:
                     kp.delete()
                 self.log("uploading Packet key pair ‘{0}’...".format(defn.keypair_name))
-                kp = self._conn.create_project_ssh_key(
+                kp = self._connection().create_project_ssh_key(
                     self.project, defn.keypair_name, self.public_key
                 )
                 self.keypair_id = kp.id
@@ -132,8 +134,7 @@ class PacketKeyPairState(nixops.resources.ResourceState):
 
         if self.state == self.UP:
             self.log("deleting Packet.net key pair ‘{0}’...".format(self.keypair_name))
-            self.connect()
-            kp = self._conn.get_ssh_key(self.keypair_id)
+            kp = self._connection().get_ssh_key(self.keypair_id)
             kp.delete()
 
         return True
