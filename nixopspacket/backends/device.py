@@ -297,6 +297,49 @@ class PacketState(MachineState):
         )
         self.log("System provisioning file captured: {}".format(self.provSystem))
 
+    def op_reinstall(self):
+        """Instruct Packet to deprovision and reinstall NixOS."""
+        self.connect()
+
+        if self.vm_id != None:
+            instance = self.connect().get_device(self.vm_id)
+            instance.reinstall()
+
+        self.log_start("waiting for the machine to go down ...")
+        nixops.util.wait_for_tcp_port(
+            self.get_ssh_name(),
+            self.ssh_port,
+            open=False,
+            callback=lambda: self.log_continue("."),
+        )
+        self.log_end("[down]")
+        self.ssh.reset()
+        nixops.known_hosts.remove(self.public_ipv4, None)
+
+        self.wait_for_state("provisioning")
+        self.wait_for_state("active")
+
+        self.log_start("waiting for ssh ...")
+        nixops.util.wait_for_tcp_port(
+            self.get_ssh_name(),
+            self.ssh_port,
+            open=True,
+            callback=lambda: self.log_continue("."),
+        )
+        self.log_end("[up]")
+
+        self.update_state(instance)
+
+        self.log("{}".format(self.public_ipv4))
+        self.wait_for_ssh()
+
+        ssh = nixops.ssh_util.SSH(self.logger)
+        ssh.register_flag_fun(self.get_ssh_flags)
+        ssh.register_host_fun(lambda: self.public_ipv4)
+        self.update_provSystem(ssh, check=True)
+        self.update_metadata(ssh, check=True)
+        self.update_state(instance)
+
     def update_metadata(self, ssh, check):
         user = "root"
         command_metadata = "curl -Ls https://metadata.packet.net/metadata"
@@ -388,11 +431,29 @@ class PacketState(MachineState):
 
         self.log("instance is in {} state".format(instance.state))
 
+        self.wait_for_state("active")
+
+        self.update_state(instance)
+        nixops.known_hosts.remove(self.public_ipv4, None)
+
+        self.log("{}".format(self.public_ipv4))
+
+        self.wait_for_ssh()
+
+        ssh = nixops.ssh_util.SSH(self.logger)
+        ssh.register_flag_fun(self.get_ssh_flags)
+        ssh.register_host_fun(lambda: self.public_ipv4)
+        self.update_provSystem(ssh, check)
+        self.update_metadata(ssh, check)
+        self.update_state(instance)
+
+    def wait_for_state(self, target_state):
+        self.log_start(
+            "waiting for the machine to enter the state '{}'  ...".format(target_state)
+        )
         while True:
             instance = self._conn.get_device(self.vm_id)
             self.update_state(instance)
-            if instance.state == "active":
-                break
             if (
                 instance.state == "provisioning"
                 and hasattr(instance, "provisioning_percentage")
@@ -405,20 +466,11 @@ class PacketState(MachineState):
                 )
             else:
                 self.log("instance is in {} state".format(instance.state))
-            time.sleep(10)
 
-        self.update_state(instance)
-        nixops.known_hosts.remove(self.public_ipv4, None)
-
-        self.log("{}".format(self.public_ipv4))
-        self.wait_for_ssh()
-
-        ssh = nixops.ssh_util.SSH(self.logger)
-        ssh.register_flag_fun(self.get_ssh_flags)
-        ssh.register_host_fun(lambda: self.public_ipv4)
-        self.update_provSystem(ssh, check)
-        self.update_metadata(ssh, check)
-        self.update_state(instance)
+            if instance.state == target_state:
+                break
+            else:
+                time.sleep(10)
 
     def switch_to_configuration(self, method, sync, command=None):
         res = super(PacketState, self).switch_to_configuration(method, sync, command)

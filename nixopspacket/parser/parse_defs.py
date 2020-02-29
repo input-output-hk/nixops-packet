@@ -20,6 +20,14 @@ def op_update_provision(args):
     m.op_update_provSystem()
 
 
+def op_reinstall(args):
+    depl = nixops.script_defs.open_deployment(args)
+    m = depl.machines.get(args.machine)
+    if not m:
+        raise Exception("unknown machine ‘{0}’".format(args.machine))
+    m.op_reinstall()
+
+
 # def op_foo(args):
 #    print('FOO')
 
