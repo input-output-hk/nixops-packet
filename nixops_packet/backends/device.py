@@ -13,8 +13,8 @@ from nixops.backends import MachineDefinition, MachineState
 from nixops.nix_expr import Function, RawValue, nix2py
 import nixops.util
 import nixops.known_hosts
-import nixopspacket.utils as packet_utils
-import nixopspacket.resources
+import nixops_packet.utils as packet_utils
+import nixops_packet.resources
 import socket
 import packet
 import json
@@ -171,7 +171,7 @@ class PacketState(MachineState):
         return {
             r
             for r in resources
-            if isinstance(r, nixopspacket.resources.keypair.PacketKeyPairState)
+            if isinstance(r, nixops_packet.resources.keypair.PacketKeyPairState)
         }
 
     def get_common_tags(self):
@@ -306,6 +306,8 @@ class PacketState(MachineState):
             callback=lambda: self.log_continue("."),
         )
         self.log_end("[down]")
+        self._ssh_pinged_this_time = False
+        self.ssh_pinged = False
         self.ssh.reset()
         nixops.known_hosts.remove(self.public_ipv4, None)
 
@@ -379,8 +381,8 @@ class PacketState(MachineState):
     def findKeypairResource(self, key_pair_name):
         for r in self.depl.active_resources.values():
             if (
-                isinstance(r, nixopspacket.resources.keypair.PacketKeyPairState)
-                and r.state == nixopspacket.resources.keypair.PacketKeyPairState.UP
+                isinstance(r, nixops_packet.resources.keypair.PacketKeyPairState)
+                and r.state == nixops_packet.resources.keypair.PacketKeyPairState.UP
                 and r.keypair_name == key_pair_name
             ):
                 return r

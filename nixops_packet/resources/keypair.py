@@ -4,8 +4,8 @@
 
 import nixops.util
 import nixops.resources
-import nixopspacket.utils as packet_utils
-import nixopspacket.backends.device
+import nixops_packet.utils as packet_utils
+import nixops_packet.backends.device
 import packet
 
 
@@ -79,7 +79,7 @@ class PacketKeyPairState(nixops.resources.ResourceState):
 
         # Generate the key pair locally.
         if not self.public_key:
-            (private, public) = nixops.util.create_key_pair(type="ed25519")
+            (private, public) = nixops.util.create_key_pair(type="rsa")
             with self.depl._db:
                 self.public_key = public
                 self.private_key = private
@@ -113,7 +113,7 @@ class PacketKeyPairState(nixops.resources.ResourceState):
         def keypair_used():
             for m in self.depl.active_resources.values():
                 if (
-                    isinstance(m, nixopspacket.backends.device.PacketState)
+                    isinstance(m, nixops_packet.backends.device.PacketState)
                     and m.key_pair == self.keypair_name
                 ):
                     return m
