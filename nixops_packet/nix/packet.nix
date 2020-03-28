@@ -12,6 +12,7 @@ in
   options = {
     deployment.packet = {
       accessKeyId = mkOption {
+        default = "";
         example = "YOURAPIKEY";
         type = types.str;
         description = ''

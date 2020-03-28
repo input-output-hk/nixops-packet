@@ -29,7 +29,11 @@ class PacketDefinition(MachineDefinition):
 
     def __init__(self, xml, config):
         MachineDefinition.__init__(self, xml, config)
-        self.access_key_id = config["packet"]["accessKeyId"]
+        if config["packet"]["accessKeyId"] == "":
+            self.access_key_id = os.environ["PACKET_ACCESS_KEY"]
+        else:
+            self.access_key_id = config["packet"]["accessKeyId"]
+
         self.key_pair = config["packet"]["keyPair"]
         self.tags = config["packet"]["tags"]
         self.facility = config["packet"]["facility"]

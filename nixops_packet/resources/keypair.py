@@ -7,6 +7,7 @@ import nixops.resources
 import nixops_packet.utils as packet_utils
 import nixops_packet.backends.device
 import packet
+import os
 
 
 class PacketKeyPairDefinition(nixops.resources.ResourceDefinition):
@@ -72,7 +73,10 @@ class PacketKeyPairState(nixops.resources.ResourceState):
     def create(self, defn, check, allow_reboot, allow_recreate):
 
         # TODO: Fix Me
-        self.access_key_id = defn.access_key_id
+        if defn.access_key_id == "":
+            self.access_key_id = os.environ["PACKET_ACCESS_KEY"]
+        else:
+            self.access_key_id = defn.access_key_id
         self.project = defn.project
         if not self.access_key_id:
             raise Exception("please set ‘accessKeyId’, $PACKET_ACCESS_KEY")
