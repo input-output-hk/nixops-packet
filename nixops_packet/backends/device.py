@@ -69,6 +69,8 @@ class PacketState(MachineState):
     state = nixops.util.attr_property("state", MachineState.MISSING, int)  # override
     accessKeyId = nixops.util.attr_property("packet.accessKeyId", None)
     key_pair = nixops.util.attr_property("packet.keyPair", None)
+    nixos_version = nixops.util.attr_property("packet.nixosVersion", None)
+    ipxe_script_url = nixops.util.attr_property("packet.ipxeScriptUrl", None)
     plan = nixops.util.attr_property("packet.plan", None)
     provSystem = nixops.util.attr_property("packet.provSystem", None)
     metadata = nixops.util.attr_property("packet.metadata", None)
@@ -422,6 +424,7 @@ class PacketState(MachineState):
         )
 
         self.vm_id = instance.id
+        assert self.vm_id is not None
         self.key_pair = defn.key_pair
         self.plan = defn.plan
         self.accessKeyId = defn.access_key_id
