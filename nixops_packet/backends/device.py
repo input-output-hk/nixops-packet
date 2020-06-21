@@ -9,7 +9,8 @@ import os.path
 import time
 import sys
 import nixops.resources
-from nixops.backends import MachineDefinition, MachineState
+from nixops.resources import ResourceOptions
+from nixops.backends import MachineDefinition, MachineState, MachineOptions
 from nixops.nix_expr import Function, RawValue, nix2py
 import nixops.util
 import nixops.known_hosts
@@ -19,7 +20,28 @@ import socket
 import packet
 import json
 import getpass
-from typing import Dict
+from typing import cast, Dict, List, Optional, Any
+
+
+class PacketMachineOptions(ResourceOptions):
+    accessKeyId: str
+    keyPair: str
+    # tags: List[str]
+    facility: str
+    plan: str
+    project: str
+    nixosVersion: str
+    ipxeScriptUrl: Optional[str]
+    customData: Any
+    storage: Any
+    alwaysPxe: Optional[bool]
+    spotInstance: bool
+    spotPriceMax: str
+    reservationId: Optional[str]
+
+
+class MyMachineOptions(MachineOptions):
+    packet: PacketMachineOptions
 
 
 class PacketDefinition(MachineDefinition):
@@ -27,30 +49,28 @@ class PacketDefinition(MachineDefinition):
     def get_type(cls):
         return "packet"
 
-    def __init__(self, xml, config):
-        MachineDefinition.__init__(self, xml, config)
-        if config["packet"]["accessKeyId"] == "":
+    config: MyMachineOptions
+
+    def __init__(self, name: str, config):
+        super().__init__(name, config)
+        if self.config.packet.accessKeyId == "":
             self.access_key_id = os.environ["PACKET_ACCESS_KEY"]
         else:
-            self.access_key_id = config["packet"]["accessKeyId"]
+            self.access_key_id = self.config.packet.accessKeyId
 
-        self.key_pair = config["packet"]["keyPair"]
-        self.tags = config["packet"]["tags"]
-        self.facility = config["packet"]["facility"]
-        self.plan = config["packet"]["plan"]
-        self.project = config["packet"]["project"]
-        self.nixosVersion = config["packet"]["nixosVersion"]
-        self.ipxe_script_url = config["packet"]["ipxeScriptUrl"]
-        self.customData = config["packet"]["customData"]
-        self.storage = config["packet"]["storage"]
-        self.always_pxe = config["packet"]["alwaysPxe"]
-        self.spotInstance = config["packet"]["spotInstance"]
-        self.spotPriceMax = config["packet"]["spotPriceMax"]
-
-        if config["packet"]["reservationId"] is None:
-            self.reservationId = ""
-        else:
-            self.reservationId = config["packet"]["reservationId"]
+        self.key_pair = self.config.packet.keyPair
+        self.tags = self.config.packet.tags
+        self.facility = self.config.packet.facility
+        self.plan = self.config.packet.plan
+        self.project = self.config.packet.project
+        self.nixosVersion = self.config.packet.nixosVersion
+        self.ipxe_script_url = self.config.packet.ipxeScriptUrl
+        self.customData = self.config.packet.customData
+        self.storage = self.config.packet.storage
+        self.always_pxe = self.config.packet.alwaysPxe
+        self.spotInstance = self.config.packet.spotInstance
+        self.spotPriceMax = self.config.packet.spotPriceMax
+        self.reservationId = self.config.packet.reservationId
 
         if self.ipxe_script_url != "":
             self.operating_system = "custom_ipxe"
@@ -61,37 +81,41 @@ class PacketDefinition(MachineDefinition):
         return "packet [something]"
 
 
-class PacketState(MachineState):
+class PacketState(MachineState[PacketDefinition]):
     @classmethod
     def get_type(cls):
         return "packet"
 
     state = nixops.util.attr_property("state", MachineState.MISSING, int)  # override
-    accessKeyId = nixops.util.attr_property("packet.accessKeyId", None)
-    key_pair = nixops.util.attr_property("packet.keyPair", None)
-    nixos_version = nixops.util.attr_property("packet.nixosVersion", None)
-    ipxe_script_url = nixops.util.attr_property("packet.ipxeScriptUrl", None)
-    plan = nixops.util.attr_property("packet.plan", None)
-    provSystem = nixops.util.attr_property("packet.provSystem", None)
-    metadata = nixops.util.attr_property("packet.metadata", None)
-    public_ipv4 = nixops.util.attr_property("publicIpv4", None)
-    public_ipv6 = nixops.util.attr_property("publicIpv6", None)
-    private_ipv4 = nixops.util.attr_property("privateIpv4", None)
-    default_gateway = nixops.util.attr_property("defaultGateway", None)
-    private_gateway = nixops.util.attr_property("privateGateway", None)
-    default_gatewayv6 = nixops.util.attr_property("defaultGatewayv6", None)
-    public_cidr = nixops.util.attr_property("publicCidr", None, int)
-    public_cidrv6 = nixops.util.attr_property("publicCidrv6", None, int)
-    private_cidr = nixops.util.attr_property("privateCidr", None, int)
+    accessKeyId: Optional[str] = nixops.util.attr_property("packet.accessKeyId", None)
+    key_pair: Optional[str] = nixops.util.attr_property("packet.keyPair", None)
+    nixos_version: Optional[str] = nixops.util.attr_property(
+        "packet.nixosVersion", None
+    )
+    ipxe_script_url: Optional[str] = nixops.util.attr_property(
+        "packet.ipxeScriptUrl", None
+    )
+    plan: Optional[str] = nixops.util.attr_property("packet.plan", None)
+    provSystem: Optional[str] = nixops.util.attr_property("packet.provSystem", None)
+    metadata: Optional[str] = nixops.util.attr_property("packet.metadata", None)
+    public_ipv4: str = nixops.util.attr_property("publicIpv4", None)
+    public_ipv6: Optional[str] = nixops.util.attr_property("publicIpv6", None)
+    private_ipv4: Optional[str] = nixops.util.attr_property("privateIpv4", None)
+    default_gateway: Optional[str] = nixops.util.attr_property("defaultGateway", None)
+    private_gateway: Optional[str] = nixops.util.attr_property("privateGateway", None)
+    default_gatewayv6: Optional[str] = nixops.util.attr_property(
+        "defaultGatewayv6", None
+    )
+    public_cidr: Optional[str] = nixops.util.attr_property("publicCidr", None, int)
+    public_cidrv6: Optional[str] = nixops.util.attr_property("publicCidrv6", None, int)
+    private_cidr: Optional[str] = nixops.util.attr_property("privateCidr", None, int)
 
-    def __init__(self, depl, name, id):
+    def __init__(self, depl: nixops.deployment.Deployment, name: str, id):
         MachineState.__init__(self, depl, name, id)
         self.name = name
         self._conn = None
-        # print(self.provSystem)
 
-    def get_ssh_name(self):
-        retVal = None
+    def get_ssh_name(self) -> str:
         if not self.public_ipv4:
             raise Exception(
                 "Packet machine ‘{0}’ does not have a public IPv4 address (yet)".format(
@@ -101,7 +125,7 @@ class PacketState(MachineState):
         return self.public_ipv4
 
     @property
-    def resource_id(self):
+    def resource_id(self) -> Optional[str]:
         return self.vm_id
 
     def connect(self):
@@ -112,7 +136,7 @@ class PacketState(MachineState):
         self._conn = packet_utils.connect(self.accessKeyId)
         return self._conn
 
-    def get_ssh_private_key_file(self):
+    def get_ssh_private_key_file(self) -> Optional[str]:
         if self._ssh_private_key_file:
             return self._ssh_private_key_file
         kp = self.findKeypairResource(self.key_pair)
@@ -130,25 +154,19 @@ class PacketState(MachineState):
             + ["-o", "StrictHostKeyChecking=accept-new"]
         )
 
-    def get_sos_ssh_name(self):
-        self.connect()
+    def get_sos_ssh_name(self) -> str:
         instance = self.connect().get_device(self.vm_id)
         return "sos.{}.packet.net".format(instance.facility["code"])
 
-    def op_sos_console(self):
+    def op_sos_console(self) -> None:
         ssh = nixops.ssh_util.SSH(self.logger)
         ssh.register_flag_fun(self.get_ssh_flags)
         ssh.register_host_fun(self.get_sos_ssh_name)
         flags, command = ssh.split_openssh_args([])
-        user = self.vm_id
+        assert self.vm_id is not None
         sys.exit(
             ssh.run_command(
-                command,
-                flags,
-                check=False,
-                logged=False,
-                allow_ssh_args=True,
-                user=user,
+                command, user=self.vm_id, check=False, logged=False, allow_ssh_args=True
             )
         )
 
@@ -218,11 +236,6 @@ class PacketState(MachineState):
                 self.log(
                     "An error occurred destroying instance. Assuming it's been destroyed already."
                 )
-        self.public_ipv4 = None
-        self.private_ipv4 = None
-        self.vm_id = None
-        self.state = MachineState.MISSING
-        self.key_pair = None
         return True
 
     def create(self, defn, check, allow_reboot, allow_recreate):
@@ -268,23 +281,14 @@ class PacketState(MachineState):
         if not self.vm_id:
             self.create_device(defn, check, allow_reboot, allow_recreate)
 
-    def op_update_provSystem(self):
-        ssh = nixops.ssh_util.SSH(self.logger)
-        ssh.register_flag_fun(self.get_ssh_flags)
-        ssh.register_host_fun(lambda: self.public_ipv4)
-        self.update_provSystem(ssh, check=True)
+    def update_provSystem(self) -> None:
+        self.wait_for_ssh()
 
-    def update_provSystem(self, ssh, check):
-        user = "root"
-        command_provSystem = "cat /etc/nixos/packet/system.nix"
-        flags, command = ssh.split_openssh_args([command_provSystem])
-        provSystem = ssh.run_command(
-            command,
-            flags,
-            check=check,
+        provSystem = self.run_command(
+            "cat /etc/nixos/packet/system.nix",
+            check=True,
             logged=True,
             allow_ssh_args=True,
-            user=user,
             capture_stdout=True,
         )
         self.provSystem = "\n".join(
@@ -300,17 +304,12 @@ class PacketState(MachineState):
         """Instruct Packet to deprovision and reinstall NixOS."""
         self.connect()
 
-        if self.vm_id != None:
+        if self.vm_id is not None:
             instance = self.connect().get_device(self.vm_id)
             instance.reinstall()
 
         self.log_start("waiting for the machine to go down ...")
-        nixops.util.wait_for_tcp_port(
-            self.get_ssh_name(),
-            self.ssh_port,
-            open=False,
-            callback=lambda: self.log_continue("."),
-        )
+        self.wait_for_ssh()
         self.log_end("[down]")
         self._ssh_pinged_this_time = False
         self.ssh_pinged = False
@@ -320,13 +319,7 @@ class PacketState(MachineState):
         self.wait_for_state("provisioning")
         self.wait_for_state("active")
 
-        self.log_start("waiting for ssh ...")
-        nixops.util.wait_for_tcp_port(
-            self.get_ssh_name(),
-            self.ssh_port,
-            open=True,
-            callback=lambda: self.log_continue("."),
-        )
+        self.wait_for_ssh()
         self.log_end("[up]")
 
         self.update_state(instance)
@@ -334,24 +327,16 @@ class PacketState(MachineState):
         self.log("{}".format(self.public_ipv4))
         self.wait_for_ssh()
 
-        ssh = nixops.ssh_util.SSH(self.logger)
-        ssh.register_flag_fun(self.get_ssh_flags)
-        ssh.register_host_fun(lambda: self.public_ipv4)
-        self.update_provSystem(ssh, check=True)
-        self.update_metadata(ssh, check=True)
+        self.update_provSystem()
+        self.update_metadata()
         self.update_state(instance)
 
-    def update_metadata(self, ssh, check):
-        user = "root"
-        command_metadata = "curl -Ls https://metadata.packet.net/metadata"
-        flags, command = ssh.split_openssh_args([command_metadata])
-        metadata = ssh.run_command(
-            command,
-            flags,
-            check=check,
+    def update_metadata(self) -> None:
+        metadata: str = self.run_command(
+            "curl -Ls https://metadata.packet.net/metadata",
+            check=True,
             logged=True,
             allow_ssh_args=True,
-            user=user,
             capture_stdout=True,
         )
         self.metadata = json.dumps(metadata)
@@ -384,19 +369,25 @@ class PacketState(MachineState):
         }
         return states.get(packetstate)
 
-    def findKeypairResource(self, key_pair_name):
+    def findKeypairResource(
+        self, key_pair_name
+    ) -> Optional[nixops_packet.resources.keypair.PacketKeyPairState]:
         for r in self.depl.active_resources.values():
-            if (
-                isinstance(r, nixops_packet.resources.keypair.PacketKeyPairState)
-                and r.state == nixops_packet.resources.keypair.PacketKeyPairState.UP
-                and r.keypair_name == key_pair_name
-            ):
-                return r
+            if isinstance(r, nixops_packet.resources.keypair.PacketKeyPairState):
+                key = cast(nixops_packet.resources.keypair.PacketKeyPairState, r)
+                if (
+                    key.keypair_name == key_pair_name
+                    and key.state
+                    == nixops_packet.resources.keypair.PacketKeyPairState.UP
+                ):
+                    return key
+
         return None
 
     def create_device(self, defn, check, allow_reboot, allow_recreate):
         self.connect()
         kp = self.findKeypairResource(defn.key_pair)
+        assert kp is not None
         common_tags = self.get_common_tags()
         tags: Dict[str, str] = {}
         tags.update(defn.tags)
@@ -441,15 +432,11 @@ class PacketState(MachineState):
         self.log("{}".format(self.public_ipv4))
 
         self.wait_for_ssh()
-
-        ssh = nixops.ssh_util.SSH(self.logger)
-        ssh.register_flag_fun(self.get_ssh_flags)
-        ssh.register_host_fun(lambda: self.public_ipv4)
-        self.update_provSystem(ssh, check)
-        self.update_metadata(ssh, check)
+        self.update_provSystem()
+        self.update_metadata()
         self.update_state(instance)
 
-    def wait_for_state(self, target_state):
+    def wait_for_state(self, target_state: str) -> None:
         self.log_start(
             "waiting for the machine to enter the state '{}'  ...".format(target_state)
         )
