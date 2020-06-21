@@ -114,6 +114,7 @@ class PacketState(MachineState[PacketDefinition]):
         MachineState.__init__(self, depl, name, id)
         self.name = name
         self._conn = None
+        # print(self.provSystem)
 
     def get_ssh_name(self) -> str:
         if not self.public_ipv4:
@@ -256,6 +257,8 @@ class PacketState(MachineState[PacketDefinition]):
                     instance = None
                     self.vm_id = None
                     self.state = MachineState.MISSING
+                    self.provSystem = None
+                    self.metadata = None
                 else:
                     raise e
 
@@ -270,16 +273,18 @@ class PacketState(MachineState[PacketDefinition]):
             if instance:
                 self.update_state(instance)
 
-            ssh = nixops.ssh_util.SSH(self.logger)
-            ssh.register_flag_fun(self.get_ssh_flags)
-            ssh.register_host_fun(lambda: self.public_ipv4)
-            if self.provSystem is None:
-                self.update_provSystem(ssh, check)
-            if self.metadata is None:
-                self.update_metadata(ssh, check)
-
         if not self.vm_id:
             self.create_device(defn, check, allow_reboot, allow_recreate)
+
+        self.wait_for_ssh()
+
+        if self.provSystem is None:
+            self.update_provSystem()
+        if self.metadata is None:
+            self.update_metadata()
+
+    def op_update_provSystem(self) -> None:
+        self.update_provSystem()
 
     def update_provSystem(self) -> None:
         self.wait_for_ssh()
@@ -314,7 +319,7 @@ class PacketState(MachineState[PacketDefinition]):
         self._ssh_pinged_this_time = False
         self.ssh_pinged = False
         self.ssh.reset()
-        nixops.known_hosts.remove(self.public_ipv4, None)
+        # !!! nixops.known_hosts.remove(self.public_ipv4, None)
 
         self.wait_for_state("provisioning")
         self.wait_for_state("active")
@@ -427,10 +432,12 @@ class PacketState(MachineState[PacketDefinition]):
         self.wait_for_state("active")
 
         self.update_state(instance)
-        nixops.known_hosts.remove(self.public_ipv4, None)
+        # !!! nixops.known_hosts.remove(self.public_ipv4, None)
 
         self.log("{}".format(self.public_ipv4))
 
+        self._ssh_pinged_this_time = False
+        self.ssh_pinged = False
         self.wait_for_ssh()
         self.update_provSystem()
         self.update_metadata()
@@ -460,9 +467,3 @@ class PacketState(MachineState[PacketDefinition]):
                 break
             else:
                 time.sleep(10)
-
-    def switch_to_configuration(self, method, sync, command=None):
-        res = super(PacketState, self).switch_to_configuration(method, sync, command)
-        if res == 0:
-            self._ssh_public_key_deployed = True
-        return res
