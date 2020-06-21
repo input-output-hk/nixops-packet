@@ -8,69 +8,75 @@ import nixops_packet.utils as packet_utils
 import nixops_packet.backends.device
 import packet
 import os
+from typing import cast, Optional
+
+
+class PacketKeyPairOptions(nixops.resources.ResourceOptions):
+    name: str
+    accessKeyId: Optional[str]
+    project: str
 
 
 class PacketKeyPairDefinition(nixops.resources.ResourceDefinition):
     """Definition of a Packet.net key pair."""
 
+    config: PacketKeyPairOptions
+
     @classmethod
-    def get_type(cls):
+    def get_type(cls) -> str:
         return "packet-keypair"
 
     @classmethod
-    def get_resource_type(cls):
+    def get_resource_type(cls) -> str:
         return "packetKeyPairs"
 
-    def __init__(self, xml):
-        nixops.resources.ResourceDefinition.__init__(self, xml)
-        self.keypair_name = xml.find("attrs/attr[@name='name']/string").get("value")
-        self.access_key_id = xml.find("attrs/attr[@name='accessKeyId']/string").get(
-            "value"
-        )
-        self.project = xml.find("attrs/attr[@name='project']/string").get("value")
-
-    def show_type(self):
-        return "{0} [something]".format(self.get_type())
+    def __init__(self, name: str, config: nixops.resources.ResourceEval):
+        super().__init__(name, config)
+        self.keypair_name = self.config.name
+        self.access_key_id = self.config.accessKeyId or None
+        self.project = self.config.project
 
 
-class PacketKeyPairState(nixops.resources.ResourceState):
+class PacketKeyPairState(nixops.resources.ResourceState[PacketKeyPairDefinition]):
     """State of a Packet.net key pair."""
 
-    state = nixops.util.attr_property(
-        "state", nixops.resources.ResourceState.MISSING, int
-    )
-    keypair_name = nixops.util.attr_property("packet.keyPairName", None)
-    public_key = nixops.util.attr_property("publicKey", None)
-    private_key = nixops.util.attr_property("privateKey", None)
-    access_key_id = nixops.util.attr_property("packet.accessKeyId", None)
-    keypair_id = nixops.util.attr_property("packet.keyPairId", None)
-    project = nixops.util.attr_property("packet.project", None)
+    keypair_name: str = nixops.util.attr_property("packet.keyPairName", None)
+    public_key: str = nixops.util.attr_property("publicKey", None)
+    private_key: str = nixops.util.attr_property("privateKey", None)
+    access_key_id: Optional[str] = nixops.util.attr_property("packet.accessKeyId", None)
+    keypair_id: str = nixops.util.attr_property("packet.keyPairId", None)
+    project: str = nixops.util.attr_property("packet.project", None)
 
     @classmethod
-    def get_type(cls):
+    def get_type(cls) -> str:
         return "packet-keypair"
 
-    def __init__(self, depl, name, id):
+    def __init__(self, depl: nixops.deployment.Deployment, name: str, id):
         nixops.resources.ResourceState.__init__(self, depl, name, id)
         self._conn = None
 
     @property
-    def resource_id(self):
+    def resource_id(self) -> str:
         return self.keypair_name
 
-    def get_definition_prefix(self):
+    def get_definition_prefix(self) -> str:
         return "resources.packetKeyPairs."
 
     def connect(self):
-        if self._conn:
-            return
-        self._conn = packet_utils.connect(self.access_key_id)
+        if self._conn is None:
+            self._conn = packet_utils.connect(self.access_key_id)
 
     def _connection(self):
         self.connect()
         return self._conn
 
-    def create(self, defn, check, allow_reboot, allow_recreate):
+    def create(
+        self,
+        defn: PacketKeyPairDefinition,
+        check: bool,
+        allow_reboot: bool,
+        allow_recreate: bool,
+    ) -> None:
 
         # TODO: Fix Me
         if defn.access_key_id == "":
@@ -113,14 +119,13 @@ class PacketKeyPairState(nixops.resources.ResourceState):
                 self.state = self.UP
                 self.keypair_name = defn.keypair_name
 
-    def destroy(self, wipe=False):
-        def keypair_used():
+    def destroy(self, wipe: bool = False) -> bool:
+        def keypair_used() -> Optional[nixops_packet.backends.device.PacketState]:
             for m in self.depl.active_resources.values():
-                if (
-                    isinstance(m, nixops_packet.backends.device.PacketState)
-                    and m.key_pair == self.keypair_name
-                ):
-                    return m
+                if isinstance(m, nixops_packet.backends.device.PacketState):
+                    device = cast(nixops_packet.backends.device.PacketState, m)
+                    if device.key_pair == self.keypair_name:
+                        return device
             return None
 
         m = keypair_used()
