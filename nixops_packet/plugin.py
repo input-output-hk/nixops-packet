@@ -2,15 +2,17 @@ import os.path
 import nixops.plugins
 import nixops.script_defs
 import nixops_packet.parser
+from argparse import ArgumentParser, _SubParsersAction
+from typing import List
 
 
 @nixops.plugins.hookimpl
-def nixexprs():
+def nixexprs() -> List[str]:
     return [os.path.dirname(os.path.abspath(__file__)) + "/nix"]
 
 
 @nixops.plugins.hookimpl
-def load():
+def load() -> List[str]:
     return [
         "nixops_packet.resources",
         "nixops_packet.backends.device",
@@ -20,7 +22,7 @@ def load():
 
 
 @nixops.plugins.hookimpl
-def parser(parser, subparsers):
+def parser(parser: ArgumentParser, subparsers: _SubParsersAction) -> None:
     plugin_parser = subparsers.add_parser(
         "packet", help="run packet specific plugin commands"
     )
@@ -58,13 +60,4 @@ def parser(parser, subparsers):
     )
     nixops.script_defs.add_common_deployment_options(plugin_command)
 
-    #    plugin_command = plugin_cmd_subparsers.add_parser('foo', help='execute command "foo"')
-    #    plugin_command.set_defaults(op=nixops_packet.parser.parse_defs.op_foo)
-    #    plugin_command.add_argument('--verbose', '-v', action='store_true', help='Provide extra foo information')
-    #    plugin_command.add_argument('--debug', action='store_true', help='enable debug output')
-
-    #    plugin_command = plugin_cmd_subparsers.add_parser('bar', help='execute command "bar"')
-    #    plugin_command.set_defaults(op=nixops_packet.parser.parse_defs.op_bar)
-    #    plugin_command.add_argument('--verbose', '-v', action='store_true', help='Provide extra bar information')
-    #    plugin_command.add_argument('--debug', action='store_true', help='enable debug output')
     return
