@@ -23,7 +23,9 @@ class PacketKeyPairDefinition(nixops.resources.ResourceDefinition):
     def __init__(self, xml):
         nixops.resources.ResourceDefinition.__init__(self, xml)
         self.keypair_name = xml.find("attrs/attr[@name='name']/string").get("value")
-        self.access_key_id = xml.find("attrs/attr[@name='accessKeyId']/string").get("value")
+        self.access_key_id = xml.find("attrs/attr[@name='accessKeyId']/string").get(
+            "value"
+        )
         self.project = xml.find("attrs/attr[@name='project']/string").get("value")
 
     def show_type(self):
@@ -33,7 +35,9 @@ class PacketKeyPairDefinition(nixops.resources.ResourceDefinition):
 class PacketKeyPairState(nixops.resources.ResourceState):
     """State of a Packet.net key pair."""
 
-    state = nixops.util.attr_property("state", nixops.resources.ResourceState.MISSING, int)
+    state = nixops.util.attr_property(
+        "state", nixops.resources.ResourceState.MISSING, int
+    )
     keypair_name = nixops.util.attr_property("packet.keyPairName", None)
     public_key = nixops.util.attr_property("publicKey", None)
     private_key = nixops.util.attr_property("privateKey", None)
@@ -41,11 +45,9 @@ class PacketKeyPairState(nixops.resources.ResourceState):
     keypair_id = nixops.util.attr_property("packet.keyPairId", None)
     project = nixops.util.attr_property("packet.project", None)
 
-
     @classmethod
     def get_type(cls):
         return "packet-keypair"
-
 
     def __init__(self, depl, name, id):
         nixops.resources.ResourceState.__init__(self, depl, name, id)
@@ -55,13 +57,12 @@ class PacketKeyPairState(nixops.resources.ResourceState):
     def resource_id(self):
         return self.keypair_name
 
-
     def get_definition_prefix(self):
         return "resources.packetKeyPairs."
 
-
     def connect(self):
-        if self._conn: return
+        if self._conn:
+            return
         self._conn = packet_utils.connect(self.access_key_id)
 
     def create(self, defn, check, allow_reboot, allow_recreate):
@@ -94,28 +95,39 @@ class PacketKeyPairState(nixops.resources.ResourceState):
 
             # Don't re-upload the key if it exists and we're just checking.
             if not kp or self.state != self.UP:
-                if kp: kp.delete()
+                if kp:
+                    kp.delete()
                 self.log("uploading Packet key pair ‘{0}’...".format(defn.keypair_name))
-                kp = self._conn.create_project_ssh_key(self.project, defn.keypair_name, self.public_key)
+                kp = self._conn.create_project_ssh_key(
+                    self.project, defn.keypair_name, self.public_key
+                )
                 self.keypair_id = kp.id
 
             with self.depl._db:
                 self.state = self.UP
                 self.keypair_name = defn.keypair_name
 
-
     def destroy(self, wipe=False):
         def keypair_used():
             for m in self.depl.active_resources.itervalues():
-                if isinstance(m, nixopspacket.backends.device.PacketState) and m.key_pair == self.keypair_name:
+                if (
+                    isinstance(m, nixopspacket.backends.device.PacketState)
+                    and m.key_pair == self.keypair_name
+                ):
                     return m
             return None
 
         m = keypair_used()
         if m:
-            raise Exception("keypair ‘{0}’ is still in use by ‘{1}’ ({2})".format(self.keypair_name, m.name, m.vm_id))
+            raise Exception(
+                "keypair ‘{0}’ is still in use by ‘{1}’ ({2})".format(
+                    self.keypair_name, m.name, m.vm_id
+                )
+            )
 
-        if not self.depl.logger.confirm("are you sure you want to destroy keypair ‘{0}’?".format(self.keypair_name)):
+        if not self.depl.logger.confirm(
+            "are you sure you want to destroy keypair ‘{0}’?".format(self.keypair_name)
+        ):
             return False
 
         if self.state == self.UP:

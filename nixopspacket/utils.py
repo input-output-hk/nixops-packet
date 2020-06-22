@@ -2,8 +2,10 @@
 
 import packet
 
+
 def connect(api_token):
     return packet.Manager(auth_token=api_token)
+
 
 def dict2tags(data):
     output = []
