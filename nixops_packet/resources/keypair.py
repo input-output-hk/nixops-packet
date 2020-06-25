@@ -33,6 +33,11 @@ class PacketKeyPairDefinition(nixops.resources.ResourceDefinition):
     def __init__(self, name: str, config: nixops.resources.ResourceEval):
         super().__init__(name, config)
         self.keypair_name = self.config.name
+        if self.config.accessKeyId is None:
+            self.access_key_id = os.environ["PACKET_ACCESS_KEY"]
+        else:
+            self.access_key_id = self.config.accessKeyId
+
         self.access_key_id = self.config.accessKeyId or None
         self.project = self.config.project
 
@@ -79,13 +84,11 @@ class PacketKeyPairState(nixops.resources.ResourceState[PacketKeyPairDefinition]
     ) -> None:
 
         # TODO: Fix Me
-        if defn.access_key_id == "":
-            self.access_key_id = os.environ["PACKET_ACCESS_KEY"]
-        else:
-            self.access_key_id = defn.access_key_id
-        self.project = defn.project
+        self.access_key_id = defn.access_key_id
         if not self.access_key_id:
             raise Exception("please set ‘accessKeyId’, $PACKET_ACCESS_KEY")
+
+        self.project = defn.project
 
         # Generate the key pair locally.
         if not self.public_key:

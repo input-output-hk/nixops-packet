@@ -24,7 +24,7 @@ from typing import cast, Dict, List, Optional, Any
 
 
 class PacketMachineOptions(ResourceOptions):
-    accessKeyId: str
+    accessKeyId: Optional[str]
     keyPair: str
     # tags: List[str]
     facility: str
@@ -53,7 +53,7 @@ class PacketDefinition(MachineDefinition):
 
     def __init__(self, name: str, config):
         super().__init__(name, config)
-        if self.config.packet.accessKeyId == "":
+        if self.config.packet.accessKeyId is None:
             self.access_key_id = os.environ["PACKET_ACCESS_KEY"]
         else:
             self.access_key_id = self.config.packet.accessKeyId
