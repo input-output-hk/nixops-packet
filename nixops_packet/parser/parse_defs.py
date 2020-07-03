@@ -15,7 +15,7 @@ def op_sos_console(args):
             raise Exception(
                 "machine is not a Packet device: ‘{0}’".format(args.machine)
             )
-            cast(PacketState, m).op_sos_console()
+        cast(PacketState, m).op_sos_console()
 
 
 def op_update_provision(args):
