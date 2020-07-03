@@ -144,9 +144,20 @@ class PacketKeyPairState(nixops.resources.ResourceState[PacketKeyPairDefinition]
         ):
             return False
 
-        if self.state == self.UP:
-            self.log("deleting Packet.net key pair ‘{0}’...".format(self.keypair_name))
-            kp = self._connection().get_ssh_key(self.keypair_id)
-            kp.delete()
-
+        try:
+            if self.state == self.UP:
+                self.log(
+                    "deleting Packet.net key pair ‘{0}’...".format(self.keypair_name)
+                )
+                kp = self._connection().get_ssh_key(self.keypair_id)
+                kp.delete()
+        except packet.baseapi.Error as e:
+            print(e.args[0])
+            if e.args[0] == "Error 404: Not found":
+                print(e)
+                self.log(
+                    "An error occurred destroying key pair. Assuming it's been destroyed already."
+                )
+            else:
+                raise e
         return True
