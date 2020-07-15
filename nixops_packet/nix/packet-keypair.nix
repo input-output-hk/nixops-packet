@@ -14,8 +14,8 @@ with lib;
 
 
     accessKeyId = mkOption {
-      default = null;
-      type = types.nullOr types.str;
+      default = "";
+      type = types.str;
       description = "The Packet Access Key ID.";
     };
 

@@ -12,11 +12,11 @@ in
   options = {
     deployment.packet = {
       accessKeyId = mkOption {
-        default = null;
-        type = types.nullOr types.str;
+        default = "";
         example = "YOURAPIKEY";
+        type = types.str;
         description = ''
-          The Packet Access Key ID.
+          packet.net access key ID
         '';
       };
       facility = mkOption {
@@ -89,7 +89,7 @@ in
         description = "If using custom iPXE booting, whether to always use iPXE boot (true) or just iPXE boot on the first boot (false).";
       };
       tags = mkOption {
-        default = { };
+        default = {};
         example = { foo = "bar"; xyzzy = "bla"; };
         type = types.attrsOf types.str;
         # FIXME: size and count are probably wrong
