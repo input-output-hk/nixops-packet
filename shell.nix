@@ -7,7 +7,7 @@ pkgs.mkShell {
     (
       pkgs.poetry2nix.mkPoetryEnv {
         projectDir = ./.;
-        overrides = pkgs.poetry2nix.overrides.withoutDefaults overrides;
+        overrides = pkgs.poetry2nix.overrides.withDefaults overrides;
       }
     )
     pkgs.poetry
