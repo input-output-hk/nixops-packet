@@ -49,9 +49,14 @@ in
           the project the instance will be launched under
         '';
       };
+      # Latest supported NixOS version without iPXE is currently 19.03
+      # Use the ipxeScriptUrl option for newer NixOS Images
+      # Reference:
+      #  curl -sH "X-Auth-Token: $TOKEN" https://api.packet.net/operating-systems \
+      #  jq '.operating_systems | .[] | select(.distro == "nixos")'
       nixosVersion = mkOption {
-        example = "nixos_19_09";
-        default = "nixos_19_09";
+        example = "nixos_19_03";
+        default = "nixos_19_03";
         type = types.str;
         description = ''
           NixOS version to install
