@@ -436,7 +436,7 @@ class PacketState(MachineState[PacketDefinition]):
             allow_ssh_args=True,
             capture_stdout=True,
         )
-        self.metadata = json.dumps(metadata)
+        self.metadata = metadata
 
     def update_state(self, instance):
         self.state = self.packetstate2state(instance.state)
