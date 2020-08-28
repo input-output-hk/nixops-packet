@@ -289,6 +289,99 @@ class PacketState(MachineState[PacketDefinition]):
     def update_provSystem(self) -> None:
         self.wait_for_ssh()
 
+        # Custom build and patch the system.nix provisioning file if a legacy NixOS version
+        if self.ipxe_script_url == "" and self.nixos_version in [
+            "nixos_18_03",
+            "nixos_19_03",
+        ]:
+
+            # Assemble a system.nix provisioning file from the nix files left by the provisioning script
+            self.log("Building system provisioning file for legacy nixosVersion")
+            if (
+                self.run_command(
+                    "FILE=system.nix; "
+                    + "mkdir -p /etc/nixos/packet; "
+                    + "cd /etc/nixos/packet; "
+                    + "echo '{ imports = [' > $FILE; "
+                    + "for i in *-*.nix metadata.nix; do echo \( >> $FILE; cat $i >> $FILE; echo \) >> $FILE; done; "
+                    + "echo ']; }' >> $FILE;",
+                    check=False,
+                )
+                != 0
+            ):
+                raise Exception(
+                    "Unable to build system provisioning file from legacy nixosVersion"
+                )
+
+            self.log("Removing legacy SSH key definitions and initialHashedPasswords")
+            if (
+                self.run_command(
+                    "cd /etc/nixos/packet; "
+                    + "sed -i -re '/users.users.root.openssh.authorizedKeys.keys = \[/{:a;N;/\s+];/!ba};//d' "
+                    + "-re '/users.users.root.initialHashedPassword/d' system.nix",
+                    check=False,
+                )
+                != 0
+            ):
+                raise Exception(
+                    "Unable to remove legacy key definitions and initialHashedPasswords"
+                )
+
+            # If bonding is used, apply a nic bond patch for Nixpkgs issue: https://github.com/NixOS/nixpkgs/issues/69360
+            nics = json.loads(self.metadata)["network"]["interfaces"]
+            macAddress = [nic for nic in nics if "mac" in nic][0]["mac"]
+            self.log(f"Obtained a physical nic MAC address: {macAddress}")
+            self.log(
+                "Applying a physical nic MAC address to a bond interface, if defined"
+            )
+            if (
+                self.run_command(
+                    "sed -i -re '1N;$!N;s/(\s+networking.interfaces.bond0 = \{"
+                    + '(\s+)useDHCP = false;)\s+/\\1\\2macAddress = "'
+                    + macAddress.strip()
+                    + "\";\\n/;P;D' /etc/nixos/packet/system.nix",
+                    check=False,
+                )
+                != 0
+            ):
+                raise Exception(
+                    "Unable to apply a physical nic MAC address to a bond interface"
+                )
+
+            # Patch the boot device on c2.medium.x86 to avoid random device name reassignment and random reboot failures
+            if self.plan == "c2.medium.x86":
+                bootuuid = self.run_command(
+                    "lsblk -o uuid,mountpoint | grep '/boot/efi' | cut -d' ' -f1 | tr -d '\n'",
+                    check=False,
+                    capture_stdout=True,
+                )
+                self.log(
+                    f"Patching the c2.medium.x86 boot device name to a boot device UUID ({bootuuid}) to avoid random reboot failures"
+                )
+                if (
+                    self.run_command(
+                        'sed -i \'\#"/boot/efi" = {#{N;s#/dev/sda1#/dev/disk/by-uuid/'
+                        + bootuuid
+                        + "#}' /etc/nixos/packet/system.nix",
+                        check=False,
+                    )
+                    != 0
+                ):
+                    raise Exception(
+                        "Unable to patch the c2.medium.x86 boot device name to a boot device UUID"
+                    )
+
+        # Raise if system.nix isn't found and the machine isn't a known NixOS version since we don't otherwise know the physical spec
+        elif self.run_command("test -r /etc/nixos/packet/system.nix", check=False) == 1:
+            raise Exception(
+                "\n".join(
+                    [
+                        f"System provisioning file not found on machine {self.name} at /etc/nixos/packet/system.nix.",
+                        "Try using a packet supported nixosVersion or ipxeScriptUrl which provides the required system provisioning file.",
+                    ]
+                )
+            )
+
         provSystem = self.run_command(
             "cat /etc/nixos/packet/system.nix",
             check=True,
