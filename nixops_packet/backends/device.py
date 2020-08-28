@@ -424,8 +424,8 @@ class PacketState(MachineState[PacketDefinition]):
         self.log("{}".format(self.public_ipv4))
         self.wait_for_ssh()
 
-        self.update_provSystem()
         self.update_metadata()
+        self.update_provSystem()
         self.update_state(instance)
 
     def update_metadata(self) -> None:
@@ -539,8 +539,8 @@ class PacketState(MachineState[PacketDefinition]):
         self._ssh_pinged_this_time = False
         self.ssh_pinged = False
         self.wait_for_ssh()
-        self.update_provSystem()
         self.update_metadata()
+        self.update_provSystem()
         self.update_state(instance)
 
     def wait_for_state(self, target_state: str) -> None:
