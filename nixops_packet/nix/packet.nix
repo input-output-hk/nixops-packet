@@ -89,7 +89,7 @@ in
         '';
       };
       ipxeScriptUrl = mkOption {
-        example = "https://myhostingserver:8080/netboot.ipxe";
+        example = "https://netboot.gsc.io/installer-pre/x86/netboot.ipxe";
         default = "";
         type = types.str;
         description = "If using custom iPXE booting, the URL for the iPXE server and iPXE script";
