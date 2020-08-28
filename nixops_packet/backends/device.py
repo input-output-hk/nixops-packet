@@ -386,7 +386,6 @@ class PacketState(MachineState[PacketDefinition]):
             "cat /etc/nixos/packet/system.nix",
             check=True,
             logged=True,
-            allow_ssh_args=True,
             capture_stdout=True,
         )
         self.provSystem = "\n".join(
@@ -396,7 +395,7 @@ class PacketState(MachineState[PacketDefinition]):
                 if not line.lstrip().startswith("#")
             ]
         )
-        self.log("System provisioning file captured: {}".format(self.provSystem))
+        self.log("System provisioning file captured:\n{}".format(self.provSystem))
 
     def op_reinstall(self):
         """Instruct Packet to deprovision and reinstall NixOS."""
@@ -504,8 +503,16 @@ class PacketState(MachineState[PacketDefinition]):
             project_ssh_keys=[kp.keypair_id],
             hardware_reservation_id=defn.reservationId,
             spot_instance=defn.spotInstance,
-            storage=None if defn.storage is None else json.dumps(defn.storage, sort_keys=True, cls=nixops.util.NixopsEncoder),
-            customdata=None if defn.customData is None else json.dumps(defn.customData, sort_keys=True, cls=nixops.util.NixopsEncoder),
+            storage=None
+            if defn.storage is None
+            else json.dumps(
+                defn.storage, sort_keys=True, cls=nixops.util.NixopsEncoder
+            ),
+            customdata=None
+            if defn.customData is None
+            else json.dumps(
+                defn.customData, sort_keys=True, cls=nixops.util.NixopsEncoder
+            ),
             spot_price_max=defn.spotPriceMax,
             tags=packet_utils.dict2tags(tags),
             ipxe_script_url=defn.ipxe_script_url,
