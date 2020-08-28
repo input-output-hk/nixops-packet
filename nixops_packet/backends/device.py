@@ -524,6 +524,8 @@ class PacketState(MachineState[PacketDefinition]):
         self.key_pair = defn.key_pair
         self.plan = defn.plan
         self.accessKeyId = defn.access_key_id
+        self.nixos_version = defn.nixosVersion
+        self.ipxe_script_url = defn.ipxe_script_url
         self.log("instance id: " + self.vm_id)
         self.update_state(instance)
 
