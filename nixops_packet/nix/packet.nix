@@ -49,17 +49,23 @@ in
           the project the instance will be launched under
         '';
       };
-      # Latest supported NixOS version without iPXE is currently 19.03
-      # Use the ipxeScriptUrl option for newer NixOS Images
-      # Reference:
-      #  curl -sH "X-Auth-Token: $TOKEN" https://api.packet.net/operating-systems \
-      #  jq '.operating_systems | .[] | select(.distro == "nixos")'
       nixosVersion = mkOption {
         example = "nixos_19_03";
         default = "nixos_19_03";
-        type = types.str;
+        type = types.enum [ "nixos_19_03" "nixos_18_03" ];
         description = ''
           NixOS version to install
+          Known Issues:
+            * c2.medium.x86 is known to randomly not provision properly due to SSD boot device reassignment on reboot
+            * Other instance types may be similarly affected using these legacy NixOS versions
+          Notes:
+            * The latest supported NixOS version using this option is currently 19.03
+            * Use the ipxeScriptUrl option for newer NixOS Images
+            * Using the ipxeScriptUrl option will automatically overwrite this option to "custom_ipxe"
+            * The customData option is not utilized when using these NixOS versions
+          Reference:
+            curl -sH "X-Auth-Token: $TOKEN" https://api.packet.net/operating-systems \
+              | jq '.operating_systems | .[] | select(.distro == "nixos")'
         '';
       };
       reservationId = mkOption {
@@ -109,6 +115,8 @@ in
         type = types.nullOr types.attrs;
         description = ''
           customData passed to packet API (e.g. CPR partitioning instructions)
+          Notes:
+            * The customData option is not utilized with the currently available nixosVersions
         '';
       };
       storage = mkOption {
