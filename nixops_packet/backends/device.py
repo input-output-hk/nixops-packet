@@ -21,6 +21,7 @@ import packet
 import json
 import getpass
 from typing import cast, Dict, List, Optional, Any
+from datetime import datetime
 
 
 class PacketMachineOptions(ResourceOptions):
@@ -546,11 +547,25 @@ class PacketState(MachineState[PacketDefinition]):
         self.update_state(instance)
 
     def wait_for_state(self, target_state: str) -> None:
+        ts = None
+        last_ts = None
         self.log_start(
             "waiting for the machine to enter the state '{}'  ...".format(target_state)
         )
         while True:
             instance = self.connect().get_device(self.vm_id)
+
+            # Events are returned pre-sorted in a list by descending chronological order
+            events = self.connect().list_device_events(self.vm_id)
+            next_ts = datetime.utcnow()
+            if ts is None:
+                if len(events) > 0:
+                    ts = datetime.strptime(events[0].created_at, "%Y-%m-%dT%H:%M:%SZ")
+                else:
+                    ts = datetime.utcnow()
+            else:
+                ts = last_ts
+
             self.update_state(instance)
             if (
                 instance.state == "provisioning"
@@ -565,7 +580,19 @@ class PacketState(MachineState[PacketDefinition]):
             else:
                 self.log("instance is in {} state".format(instance.state))
 
+            # Select new device events
+            filtered = list(
+                filter(
+                    lambda e: datetime.strptime(e.created_at, "%Y-%m-%dT%H:%M:%SZ")
+                    > ts,
+                    events,
+                )
+            )
+            for event in reversed(filtered):
+                self.log(f"{event.created_at} -- {event}")
+
             if instance.state == target_state:
                 break
             else:
+                last_ts = next_ts
                 time.sleep(10)
