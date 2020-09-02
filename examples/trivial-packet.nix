@@ -1,17 +1,16 @@
 let
   accessKeyId = "YOURAPIKEY";
   your-projid = "your-project-id-uuid";
-
 in {
-  network.description = "test-packet";
-  resources.packetKeyPairs.dummy = {
+  network.description = "packetDemo";
+  resources.packetKeyPairs.keyDemo = {
     inherit accessKeyId;
     project = your-projid;
   };
-  machine-sam = { resources, ... }: {
+  machineDemo = { resources, ... }: {
     deployment.packet = {
       inherit accessKeyId;
-      keyPair = resources.packetKeyPairs.dummy;
+      keyPair = resources.packetKeyPairs.keyDemo;
       facility = "ams1";
       plan = "c1.small.x86";
       project = your-projid;
