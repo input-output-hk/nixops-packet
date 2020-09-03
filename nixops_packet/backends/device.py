@@ -22,6 +22,9 @@ import json
 import getpass
 from typing import cast, Dict, List, Optional, Any
 from datetime import datetime
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 class PacketMachineOptions(ResourceOptions):
@@ -396,7 +399,8 @@ class PacketState(MachineState[PacketDefinition]):
                 if not line.lstrip().startswith("#")
             ]
         )
-        self.log("System provisioning file captured:\n{}".format(self.provSystem))
+        self.log("System provisioning file captured")
+        logger.debug(self.provSystem)
 
     def op_reinstall(self):
         """Instruct Packet to deprovision and reinstall NixOS."""
@@ -548,9 +552,8 @@ class PacketState(MachineState[PacketDefinition]):
 
     def wait_for_state(self, target_state: str) -> None:
         ts = None
-        last_ts = None
         self.log_start(
-            "waiting for the machine to enter the state '{}'  ...".format(target_state)
+            "waiting for the machine to enter the state '{}' ...".format(target_state)
         )
         while True:
             instance = self.connect().get_device(self.vm_id)

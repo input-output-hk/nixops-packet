@@ -9,6 +9,9 @@ import nixops_packet.backends.device
 import packet
 import os
 from typing import cast, Optional
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 class PacketKeyPairOptions(nixops.resources.ResourceOptions):
@@ -35,8 +38,10 @@ class PacketKeyPairDefinition(nixops.resources.ResourceDefinition):
         self.keypair_name = self.config.name
         if self.config.accessKeyId is None:
             self.access_key_id = os.environ["PACKET_ACCESS_KEY"]
+            logger.debug("Packet API key obtained from env var PACKET_ACCESS_KEY")
         else:
             self.access_key_id = self.config.accessKeyId
+            logger.debug("Packet API key obtained from config")
 
         self.access_key_id = self.config.accessKeyId or None
         self.project = self.config.project
