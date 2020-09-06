@@ -424,14 +424,14 @@ class PacketState(MachineState[PacketDefinition]):
         self.wait_for_ssh()
         self.log_end("[up]")
 
-        self.update_state(instance)
+        self.update_state(self.connect().get_device(self.vm_id))
 
         self.log("{}".format(self.public_ipv4))
         self.wait_for_ssh()
 
         self.update_metadata()
         self.update_provSystem()
-        self.update_state(instance)
+        self.update_state(self.connect().get_device(self.vm_id))
 
     def update_metadata(self) -> None:
         metadata: str = self.run_command(
@@ -532,13 +532,13 @@ class PacketState(MachineState[PacketDefinition]):
         self.nixos_version = defn.nixosVersion
         self.ipxe_script_url = defn.ipxe_script_url
         self.log("instance id: " + self.vm_id)
-        self.update_state(instance)
+        self.update_state(self.connect().get_device(self.vm_id))
 
         self.log("instance is in {} state".format(instance.state))
 
         self.wait_for_state("active")
 
-        self.update_state(instance)
+        self.update_state(self.connect().get_device(self.vm_id))
         # !!! nixops.known_hosts.remove(self.public_ipv4, None)
 
         self.log("{}".format(self.public_ipv4))
@@ -548,7 +548,7 @@ class PacketState(MachineState[PacketDefinition]):
         self.wait_for_ssh()
         self.update_metadata()
         self.update_provSystem()
-        self.update_state(instance)
+        self.update_state(self.connect().get_device(self.vm_id))
 
     def wait_for_state(self, target_state: str) -> None:
         ts = None
