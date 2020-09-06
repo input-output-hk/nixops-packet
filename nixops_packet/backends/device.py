@@ -282,10 +282,10 @@ class PacketState(MachineState[PacketDefinition]):
 
         self.wait_for_ssh()
 
-        if self.provSystem is None:
-            self.update_provSystem()
         if self.metadata is None:
             self.update_metadata()
+        if self.provSystem is None:
+            self.update_provSystem()
 
     def op_update_provSystem(self) -> None:
         self.update_provSystem()
