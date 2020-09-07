@@ -464,6 +464,7 @@ class PacketState(MachineState[PacketDefinition]):
         states = {
             "queued": MachineState.STARTING,
             "provisioning": MachineState.STARTING,
+            "reinstalling": MachineState.STARTING,
             "active": MachineState.UP,
             "powering_off": MachineState.STOPPING,
             "powering_on": MachineState.STARTING,
