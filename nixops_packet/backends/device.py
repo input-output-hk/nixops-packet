@@ -596,6 +596,16 @@ class PacketState(MachineState[PacketDefinition]):
 
             if instance.state == target_state:
                 break
+            elif instance.state == "failed":
+                self.vm_id = None
+                self.state = MachineState.MISSING
+                self.ssh_pinged = False
+                self._ssh_pinged_this_time = False
+                raise Exception(
+                    "Packet.net failed to provision ‘{0}’; deploy with ‘--allow-recreate’ to create a new one".format(
+                        self.name
+                    )
+                )
             else:
                 last_ts = next_ts
                 time.sleep(10)
