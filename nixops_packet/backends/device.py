@@ -278,6 +278,16 @@ class PacketState(MachineState[PacketDefinition]):
                 self.update_state(instance)
 
         if not self.vm_id:
+            if (
+                self.state == self.MISSING
+                and (self.public_ipv4 or self.public_ipv6)
+                and not allow_recreate
+            ):
+                raise Exception(
+                    "Packet.net instance ‘{0}’ went away; deploy with ‘--allow-recreate’ to create a new one".format(
+                        self.name
+                    )
+                )
             self.create_device(defn, check, allow_reboot, allow_recreate)
 
         self.wait_for_ssh()
