@@ -261,15 +261,15 @@ class PacketState(MachineState[PacketDefinition]):
                     instance = None
                     self.vm_id = None
                     self.state = MachineState.MISSING
-                    self.provSystem = None
-                    self.metadata = None
+                    self.ssh_pinged = False
+                    self._ssh_pinged_this_time = False
                 else:
                     raise e
 
             if instance is None:
                 if not allow_recreate:
                     raise Exception(
-                        "Packet.net instance ‘{0}’ went away; use ‘--allow-recreate’ to create a new one".format(
+                        "Packet.net instance ‘{0}’ went away; deploy with ‘--allow-recreate’ to create a new one".format(
                             self.name
                         )
                     )
@@ -290,18 +290,18 @@ class PacketState(MachineState[PacketDefinition]):
                 )
             self.create_device(defn, check, allow_reboot, allow_recreate)
 
-        self.wait_for_ssh()
+        # Ensure periodic API instance health checks while waiting for ssh
+        self.wait_for_ssh_nixops_packet(check=True)
 
-        if self.metadata is None:
-            self.update_metadata()
-        if self.provSystem is None:
-            self.update_provSystem()
+        if self.metadata is None or self.provSystem is None:
+            self.update_provSystem(check=False)
 
     def op_update_provSystem(self) -> None:
         self.update_provSystem()
 
-    def update_provSystem(self) -> None:
-        self.wait_for_ssh()
+    def update_provSystem(self, check=True) -> None:
+        self.wait_for_ssh_nixops_packet(check=check)
+        self.update_metadata()
 
         # Custom build and patch the system.nix provisioning file if a legacy NixOS version
         if self.ipxe_script_url == "" and self.nixos_version in [
@@ -421,7 +421,7 @@ class PacketState(MachineState[PacketDefinition]):
             instance.reinstall()
 
         self.log_start("waiting for the machine to go down ...")
-        self.wait_for_ssh()
+        self.wait_for_ssh_nixops_packet()
         self.log_end("[down]")
         self._ssh_pinged_this_time = False
         self.ssh_pinged = False
@@ -431,16 +431,14 @@ class PacketState(MachineState[PacketDefinition]):
         self.wait_for_state("provisioning")
         self.wait_for_state("active")
 
-        self.wait_for_ssh()
+        self.wait_for_ssh_nixops_packet(check=True)
         self.log_end("[up]")
 
         self.update_state(self.connect().get_device(self.vm_id))
 
         self.log("{}".format(self.public_ipv4))
-        self.wait_for_ssh()
 
-        self.update_metadata()
-        self.update_provSystem()
+        self.update_provSystem(check=False)
         self.update_state(self.connect().get_device(self.vm_id))
 
     def update_metadata(self) -> None:
@@ -452,6 +450,8 @@ class PacketState(MachineState[PacketDefinition]):
             capture_stdout=True,
         )
         self.metadata = metadata
+        self.log("Metadata captured")
+        logger.debug(self.metadata)
 
     def update_state(self, instance):
         self.state = self.packetstate2state(instance.state)
@@ -469,6 +469,11 @@ class PacketState(MachineState[PacketDefinition]):
                 self.private_ipv4 = address["address"]
                 self.private_gateway = address["gateway"]
                 self.private_cidr = address["cidr"]
+        logger.debug(
+            '{0} state: {{ "{1}": {2} }}'.format(
+                self.name, self.show_state(), self.state
+            )
+        )
 
     def packetstate2state(self, packetstate):
         states = {
@@ -556,9 +561,7 @@ class PacketState(MachineState[PacketDefinition]):
 
         self._ssh_pinged_this_time = False
         self.ssh_pinged = False
-        self.wait_for_ssh()
-        self.update_metadata()
-        self.update_provSystem()
+        self.update_provSystem(check=True)
         self.update_state(self.connect().get_device(self.vm_id))
 
     def wait_for_state(self, target_state: str) -> None:
@@ -620,3 +623,63 @@ class PacketState(MachineState[PacketDefinition]):
             else:
                 last_ts = next_ts
                 time.sleep(10)
+
+    def wait_for_ssh_nixops_packet(self, check=False):
+        logger.debug(f"{self.name} wait_for_ssh_nixops_packet check = {check}")
+        logger.debug(f"{self.name} ssh_pinged = {self.ssh_pinged}")
+        logger.debug(
+            f"{self.name} _ssh_pinged_this_time = {self._ssh_pinged_this_time}"
+        )
+        if self.ssh_pinged and (not check or self._ssh_pinged_this_time):
+            return
+        self.log_start("waiting for SSH...")
+
+        # Create a callback object with a 60 second API health check interval
+        packet_health = PacketHealth(60)
+        self.wait_for_up(callback=lambda: packet_health.check(self))
+
+        self.log_end("")
+        if self.state != self.RESCUE:
+            self.state = self.UP
+        self.ssh_pinged = True
+        self._ssh_pinged_this_time = True
+
+
+class PacketHealth:
+    """An interval aware health check callback class for wait_for_ssh."""
+
+    def __init__(self, interval, start_ts=0):
+        self.interval = interval
+        self.ts = start_ts
+
+    def check(self, packet_self):
+        if (time.time() - self.ts) >= self.interval:
+            if packet_self.vm_id == None:
+                packet_self.ssh_pinged = False
+                packet_self._ssh_pinged_this_time = False
+                raise Exception(
+                    "Packet.net instance ‘{0}’ went away; deploy with ‘--allow-recreate’ to create a new one".format(
+                        packet_self.name
+                    )
+                )
+            if packet_self.vm_id != None:
+                try:
+                    instance = packet_self.connect().get_device(packet_self.vm_id)
+                except packet.baseapi.Error as e:
+                    if e.args[0] == "Error 404: Not found":
+                        instance = None
+                        packet_self.vm_id = None
+                        packet_self.state = MachineState.MISSING
+                        packet_self.ssh_pinged = False
+                        packet_self._ssh_pinged_this_time = False
+                    else:
+                        raise e
+
+                if instance is None:
+                    raise Exception(
+                        "Packet.net instance ‘{0}’ went away; deploy with ‘--allow-recreate’ to create a new one".format(
+                            packet_self.name
+                        )
+                    )
+            self.ts = time.time()
+        packet_self.log_continue(".")
