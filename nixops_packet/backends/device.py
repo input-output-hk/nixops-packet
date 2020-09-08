@@ -232,6 +232,11 @@ class PacketState(MachineState[PacketDefinition]):
         except packet.baseapi.Error as e:
             if e.args[0] == "Error 401: Invalid authentication token":
                 raise e
+            elif e.args[0] == "Error 404: Not found":
+                print(e)
+                self.log(
+                    "An error occurred destroying instance. Assuming it's been destroyed already."
+                )
             elif (
                 e.args[0]
                 == "Error 422: Cannot delete a device while it is provisioning"
@@ -239,10 +244,7 @@ class PacketState(MachineState[PacketDefinition]):
                 self.state = self.packetstate2state(instance.state)
                 raise e
             else:
-                print(e)
-                self.log(
-                    "An error occurred destroying instance. Assuming it's been destroyed already."
-                )
+                raise e
         return True
 
     def create(self, defn, check, allow_reboot, allow_recreate):
