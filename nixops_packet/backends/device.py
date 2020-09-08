@@ -230,7 +230,9 @@ class PacketState(MachineState[PacketDefinition]):
                 instance = self.connect().get_device(self.vm_id)
                 instance.delete()
         except packet.baseapi.Error as e:
-            if (
+            if e.args[0] == "Error 401: Invalid authentication token":
+                raise e
+            elif (
                 e.args[0]
                 == "Error 422: Cannot delete a device while it is provisioning"
             ):
