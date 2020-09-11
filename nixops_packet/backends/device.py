@@ -113,6 +113,7 @@ class PacketState(MachineState[PacketDefinition]):
     public_cidr: Optional[str] = nixops.util.attr_property("publicCidr", None, int)
     public_cidrv6: Optional[str] = nixops.util.attr_property("publicCidrv6", None, int)
     private_cidr: Optional[str] = nixops.util.attr_property("privateCidr", None, int)
+    public_host_key: str = nixops.util.attr_property("publicHostKey", None)
 
     def __init__(self, depl: nixops.deployment.Deployment, name: str, id):
         MachineState.__init__(self, depl, name, id)
@@ -245,6 +246,7 @@ class PacketState(MachineState[PacketDefinition]):
                 raise e
             else:
                 raise e
+        nixops.known_hosts.remove(self.public_ipv4, self.public_host_key)
         return True
 
     def create(self, defn, check, allow_reboot, allow_recreate):
@@ -267,6 +269,7 @@ class PacketState(MachineState[PacketDefinition]):
                     self.state = MachineState.MISSING
                     self.ssh_pinged = False
                     self._ssh_pinged_this_time = False
+                    nixops.known_hosts.remove(self.public_ipv4, self.public_host_key)
                 else:
                     raise e
 
@@ -416,6 +419,16 @@ class PacketState(MachineState[PacketDefinition]):
         self.log("System provisioning file captured")
         logger.debug(self.provSystem)
 
+        public_host_key = self.run_command(
+            "cat /etc/ssh/ssh_host_ed25519_key.pub", check=False, capture_stdout=True,
+        )
+        self.public_host_key = public_host_key.strip()
+        nixops.known_hosts.update(
+            self.public_ipv4, self.public_ipv4, self.public_host_key
+        )
+        self.log("System public host key captured")
+        logger.debug(self.public_host_key)
+
     def op_reinstall(self):
         """Instruct Packet to deprovision and reinstall NixOS."""
         self.connect()
@@ -430,7 +443,7 @@ class PacketState(MachineState[PacketDefinition]):
         self._ssh_pinged_this_time = False
         self.ssh_pinged = False
         self.ssh.reset()
-        # !!! nixops.known_hosts.remove(self.public_ipv4, None)
+        nixops.known_hosts.remove(self.public_ipv4, self.public_host_key)
 
         self.wait_for_state("provisioning")
         self.wait_for_state("active")
@@ -559,7 +572,6 @@ class PacketState(MachineState[PacketDefinition]):
         self.wait_for_state("active")
 
         self.update_state(self.connect().get_device(self.vm_id))
-        # !!! nixops.known_hosts.remove(self.public_ipv4, None)
 
         self.log("{}".format(self.public_ipv4))
 
@@ -619,6 +631,7 @@ class PacketState(MachineState[PacketDefinition]):
                 self.state = MachineState.MISSING
                 self.ssh_pinged = False
                 self._ssh_pinged_this_time = False
+                nixops.known_hosts.remove(self.public_ipv4, self.public_host_key)
                 raise Exception(
                     "Packet.net failed to provision ‘{0}’; deploy with ‘--allow-recreate’ to create a new one".format(
                         self.name
@@ -666,24 +679,26 @@ class PacketHealth:
                         packet_self.name
                     )
                 )
-            if packet_self.vm_id != None:
-                try:
-                    instance = packet_self.connect().get_device(packet_self.vm_id)
-                except packet.baseapi.Error as e:
-                    if e.args[0] == "Error 404: Not found":
-                        instance = None
-                        packet_self.vm_id = None
-                        packet_self.state = MachineState.MISSING
-                        packet_self.ssh_pinged = False
-                        packet_self._ssh_pinged_this_time = False
-                    else:
-                        raise e
-
-                if instance is None:
-                    raise Exception(
-                        "Packet.net instance ‘{0}’ went away; deploy with ‘--allow-recreate’ to create a new one".format(
-                            packet_self.name
-                        )
+            try:
+                instance = packet_self.connect().get_device(packet_self.vm_id)
+            except packet.baseapi.Error as e:
+                if e.args[0] == "Error 404: Not found":
+                    instance = None
+                    packet_self.vm_id = None
+                    packet_self.state = MachineState.MISSING
+                    packet_self.ssh_pinged = False
+                    packet_self._ssh_pinged_this_time = False
+                    nixops.known_hosts.remove(
+                        packet_self.public_ipv4, packet_self.public_host_key
                     )
+                else:
+                    raise e
+
+            if instance is None:
+                raise Exception(
+                    "Packet.net instance ‘{0}’ went away; deploy with ‘--allow-recreate’ to create a new one".format(
+                        packet_self.name
+                    )
+                )
             self.ts = time.time()
         packet_self.log_continue(".")
