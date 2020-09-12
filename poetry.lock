@@ -118,7 +118,7 @@ description = ""
 name = "nixops"
 optional = false
 python-versions = "^3.7"
-version = "1.8.0"
+version = "2.0.0"
 
 [package.dependencies]
 PrettyTable = "^0.7.2"
@@ -127,7 +127,7 @@ typeguard = "^2.7.1"
 typing-extensions = "^3.7.4"
 
 [package.source]
-reference = "a287225018ced729d7fcf0858ed4fab2d7131c56"
+reference = "958af5ef0015bd30bf421832a4760e0036add63e"
 type = "git"
 url = "https://github.com/NixOS/nixops.git"
 [[package]]
@@ -144,15 +144,16 @@ description = "Packet API client"
 name = "packet-python"
 optional = false
 python-versions = "*"
-version = "1.42.0"
+version = "1.43.1"
 
 [package.dependencies]
 requests = "*"
 
 [package.source]
-reference = "f32e55174b43130e6782828d0fbc712ba644ac92"
+reference = "927684bda1b5092ab14327ac517f5dcad2e7cafd"
 type = "git"
 url = "https://github.com/packethost/packet-python.git"
+
 [[package]]
 category = "dev"
 description = "Utility library for gitignore style pattern matching of file paths."
@@ -286,7 +287,7 @@ docs = ["sphinx", "jaraco.packaging (>=3.2)", "rst.linker (>=1.9)"]
 testing = ["jaraco.itertools", "func-timeout"]
 
 [metadata]
-content-hash = "668525c2de9fa6194d1d1013aa2f23be348916dab0e296fb686ef816ceeaaab8"
+content-hash = "80374d1ae6e01c19e9ec3ce8ab4157a09077960b5d164461c4a5720693fe016d"
 python-versions = "^3.7"
 
 [metadata.files]
@@ -384,6 +385,7 @@ regex = [
     {file = "regex-2020.7.14-cp38-cp38-manylinux1_i686.whl", hash = "sha256:5ea81ea3dbd6767873c611687141ec7b06ed8bab43f68fad5b7be184a920dc99"},
     {file = "regex-2020.7.14-cp38-cp38-manylinux1_x86_64.whl", hash = "sha256:bbb332d45b32df41200380fff14712cb6093b61bd142272a10b16778c418e98e"},
     {file = "regex-2020.7.14-cp38-cp38-manylinux2010_i686.whl", hash = "sha256:c11d6033115dc4887c456565303f540c44197f4fc1a2bfb192224a301534888e"},
+    {file = "regex-2020.7.14-cp38-cp38-manylinux2010_x86_64.whl", hash = "sha256:75aaa27aa521a182824d89e5ab0a1d16ca207318a6b65042b046053cfc8ed07a"},
     {file = "regex-2020.7.14-cp38-cp38-win32.whl", hash = "sha256:d6cff2276e502b86a25fd10c2a96973fdb45c7a977dca2138d661417f3728341"},
     {file = "regex-2020.7.14-cp38-cp38-win_amd64.whl", hash = "sha256:7a2dd66d2d4df34fa82c9dc85657c5e019b87932019947faece7983f2089a840"},
     {file = "regex-2020.7.14.tar.gz", hash = "sha256:3a3af27a8d23143c49a3420efe5b3f8cf1a48c6fc8bc6856b03f638abc1833bb"},

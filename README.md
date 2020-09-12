@@ -28,7 +28,7 @@ To view active plugins:
 nixops list-plugins
 ```
 
-The python code is formatted with the latest release of [black](https://black.readthedocs.io/en/stable)
+The python code is formatted with the latest release of [black](https://black.readthedocs.io/en/stable).
 
 For additional information on nixops and plugins, see the main NixOps
 [repo](https://github.com/NixOS/nixops) and the Nixops [Read the Docs](https://nixops.readthedocs.io/en/latest/index.html).
