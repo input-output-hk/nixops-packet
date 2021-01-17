@@ -11,7 +11,7 @@ import sys
 import nixops.resources
 from nixops.resources import ResourceOptions
 from nixops.backends import MachineDefinition, MachineState, MachineOptions
-from nixops.nix_expr import Function, RawValue, nix2py
+from nixops.nix_expr import nix2py
 import nixops.util
 import nixops.known_hosts
 import nixops_packet.utils as packet_utils
@@ -20,7 +20,7 @@ import socket
 import packet
 import json
 import getpass
-from typing import cast, Dict, List, Optional, Any
+from typing import cast, Dict, Optional, Any
 from datetime import datetime
 import logging
 
@@ -82,10 +82,12 @@ class PacketDefinition(MachineDefinition):
             self.operating_system = self.nixosVersion
 
     def show_type(self):
-        return "packet [something]"
+        return "{0} [{1}]".format(self.get_type(), self.facility or "???")
 
 
 class PacketState(MachineState[PacketDefinition]):
+    definition_type = PacketDefinition
+
     @classmethod
     def get_type(cls):
         return "packet"
@@ -99,6 +101,7 @@ class PacketState(MachineState[PacketDefinition]):
     ipxe_script_url: Optional[str] = nixops.util.attr_property(
         "packet.ipxeScriptUrl", None
     )
+    facility: Optional[str] = nixops.util.attr_property("packet.facility", None)
     plan: Optional[str] = nixops.util.attr_property("packet.plan", None)
     provSystem: Optional[str] = nixops.util.attr_property("packet.provSystem", None)
     metadata: Optional[str] = nixops.util.attr_property("packet.metadata", None)
@@ -133,6 +136,12 @@ class PacketState(MachineState[PacketDefinition]):
     @property
     def resource_id(self) -> Optional[str]:
         return self.vm_id
+
+    def show_type(self):
+        s = super(PacketState, self).show_type()
+        if self.facility:
+            s = "{0} [{1}; {2}]".format(s, self.facility, self.plan)
+        return s
 
     def connect(self):
         if self._conn:
@@ -187,7 +196,7 @@ class PacketState(MachineState[PacketDefinition]):
         }
 
     def get_physical_spec(self):
-        if self.key_pair == None and self.plan != None:
+        if self.key_pair is None and self.plan is not None:
             raise Exception("Key Pair is not set")
         kp = self.findKeypairResource(self.key_pair)
         if kp:
@@ -217,7 +226,7 @@ class PacketState(MachineState[PacketDefinition]):
         return tags
 
     def destroy(self, wipe=False):
-        if self.plan != None:
+        if self.plan is not None:
             self.connect()
         if not self.depl.logger.confirm(
             "are you sure you want to destroy Packet.Net machine ‘{0}’?".format(
@@ -227,7 +236,7 @@ class PacketState(MachineState[PacketDefinition]):
             return False
         self.log("destroying instance {}".format(self.vm_id))
         try:
-            if self.vm_id != None:
+            if self.vm_id is not None:
                 instance = self.connect().get_device(self.vm_id)
                 instance.delete()
         except packet.baseapi.Error as e:
@@ -324,7 +333,8 @@ class PacketState(MachineState[PacketDefinition]):
                     + "mkdir -p /etc/nixos/packet; "
                     + "cd /etc/nixos/packet; "
                     + "echo '{ imports = [' > $FILE; "
-                    + "for i in *-*.nix metadata.nix; do echo \( >> $FILE; cat $i >> $FILE; echo \) >> $FILE; done; "
+                    + "for i in *-*.nix metadata.nix; "
+                    + "do echo \( >> $FILE; cat $i >> $FILE; echo \) >> $FILE; done; "  # noqa: W605
                     + "echo ']; }' >> $FILE;",
                     check=False,
                 )
@@ -338,7 +348,8 @@ class PacketState(MachineState[PacketDefinition]):
             if (
                 self.run_command(
                     "cd /etc/nixos/packet; "
-                    + "sed -i -re '/users.users.root.openssh.authorizedKeys.keys = \[/{:a;N;/\s+];/!ba};//d' "
+                    + "sed -i -re '/users.users.root.openssh.authorizedKeys.keys "
+                    + "= \[/{:a;N;/\s+];/!ba};//d' "  # noqa: W605
                     + "-re '/users.users.root.initialHashedPassword/d' system.nix",
                     check=False,
                 )
@@ -357,8 +368,8 @@ class PacketState(MachineState[PacketDefinition]):
             )
             if (
                 self.run_command(
-                    "sed -i -re '1N;$!N;s/(\s+networking.interfaces.bond0 = \{"
-                    + '(\s+)useDHCP = false;)\s+/\\1\\2macAddress = "'
+                    "sed -i -re '1N;$!N;s/(\s+networking.interfaces.bond0 = \{"  # noqa: W605
+                    + '(\s+)useDHCP = false;)\s+/\\1\\2macAddress = "'  # noqa: W605
                     + macAddress.strip()
                     + "\";\\n/;P;D' /etc/nixos/packet/system.nix",
                     check=False,
@@ -381,7 +392,7 @@ class PacketState(MachineState[PacketDefinition]):
                 )
                 if (
                     self.run_command(
-                        'sed -i \'\#"/boot/efi" = {#{N;s#/dev/sda1#/dev/disk/by-uuid/'
+                        'sed -i \'\#"/boot/efi" = {#{N;s#/dev/sda1#/dev/disk/by-uuid/'  # noqa: W605
                         + bootuuid
                         + "#}' /etc/nixos/packet/system.nix",
                         check=False,
@@ -560,6 +571,7 @@ class PacketState(MachineState[PacketDefinition]):
         self.vm_id = instance.id
         assert self.vm_id is not None
         self.key_pair = defn.key_pair
+        self.facility = defn.facility
         self.plan = defn.plan
         self.accessKeyId = defn.access_key_id
         self.nixos_version = defn.nixosVersion
@@ -582,6 +594,7 @@ class PacketState(MachineState[PacketDefinition]):
 
     def wait_for_state(self, target_state: str) -> None:
         ts = None
+        last_ts = None
         self.log_start(
             "waiting for the machine to enter the state '{}' ...".format(target_state)
         )
@@ -671,7 +684,7 @@ class PacketHealth:
 
     def check(self, packet_self):
         if (time.time() - self.ts) >= self.interval:
-            if packet_self.vm_id == None:
+            if packet_self.vm_id is None:
                 packet_self.ssh_pinged = False
                 packet_self._ssh_pinged_this_time = False
                 raise Exception(
