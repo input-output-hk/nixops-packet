@@ -229,7 +229,7 @@ class PacketState(MachineState[PacketDefinition]):
         if self.plan is not None:
             self.connect()
         if not self.depl.logger.confirm(
-            "are you sure you want to destroy Packet.Net machine ‘{0}’?".format(
+            "are you sure you want to destroy Packet.net machine ‘{0}’?".format(
                 self.name
             )
         ):
@@ -247,6 +247,14 @@ class PacketState(MachineState[PacketDefinition]):
                 self.log(
                     "An error occurred destroying instance. Assuming it's been destroyed already."
                 )
+            elif e.args[0] == "Error 403: You are not authorized to view this device":
+                print(e)
+                if not self.depl.logger.confirm(
+                    "while trying to destroy instance {}, a not-authorized error occurred.\n".format(self.name)
+                    + "This may happen if a machine deployment failed and a machine is later reallocated to another customer's account.\n"
+                    + "Do you want to remove this machine from nixops and assume it's already been destroyed?"
+                ):
+                    raise e
             elif (
                 e.args[0]
                 == "Error 422: Cannot delete a device while it is provisioning"
