@@ -1,1 +1,1 @@
-from . import parse_defs
+from . import parse_defs  # noqa: F401

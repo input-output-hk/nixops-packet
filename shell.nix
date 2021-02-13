@@ -1,15 +1,18 @@
-{ pkgs ? import <nixpkgs> {} }:
+{ pkgs ? import ./nix { } }:
 let
   overrides = import ./overrides.nix { inherit pkgs; };
-in
-pkgs.mkShell {
-  buildInputs = [
-    (
-      pkgs.poetry2nix.mkPoetryEnv {
-        projectDir = ./.;
-        overrides = pkgs.poetry2nix.overrides.withDefaults overrides;
-      }
-    )
-    pkgs.poetry
+  poetryEnv = pkgs.poetry2nix.mkPoetryEnv {
+    projectDir = ./.;
+    overrides = pkgs.poetry2nix.overrides.withDefaults overrides;
+  };
+in pkgs.mkShell {
+  buildInputs = with pkgs; [
+    poetryEnv
+    black
+    mypy
+    nixfmt
+    poetry
+    python3
+    python3Packages.flake8
   ];
 }

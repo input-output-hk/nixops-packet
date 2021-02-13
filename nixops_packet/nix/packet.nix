@@ -4,10 +4,8 @@ with utils;
 with lib;
 with import ./lib.nix lib;
 
-let
-  cfg = config.deployment.packet;
-in
-{
+let cfg = config.deployment.packet;
+in {
   ###### interface
   options = {
     deployment.packet = {
@@ -92,16 +90,21 @@ in
         example = "https://netboot.gsc.io/installer-pre/x86/netboot.ipxe";
         default = "";
         type = types.str;
-        description = "If using custom iPXE booting, the URL for the iPXE server and iPXE script";
+        description =
+          "If using custom iPXE booting, the URL for the iPXE server and iPXE script";
       };
       alwaysPxe = mkOption {
         default = false;
         type = types.bool;
-        description = "If using custom iPXE booting, whether to always use iPXE boot (true) or just iPXE boot on the first boot (false).";
+        description =
+          "If using custom iPXE booting, whether to always use iPXE boot (true) or just iPXE boot on the first boot (false).";
       };
       tags = mkOption {
-        default = {};
-        example = { foo = "bar"; xyzzy = "bla"; };
+        default = { };
+        example = {
+          foo = "bar";
+          xyzzy = "bla";
+        };
         type = types.attrsOf types.str;
         # FIXME: size and count are probably wrong
         description = ''

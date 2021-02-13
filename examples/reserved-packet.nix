@@ -1,5 +1,5 @@
 let
-  pkgs = import <nixpkgs> {};
+  pkgs = import <nixpkgs> { };
   inherit (pkgs) lib;
   accessKeyId = (import ./packet-secret.nix).accessKeyId;
   projectId = (import ./packet-secret.nix).projectId;
