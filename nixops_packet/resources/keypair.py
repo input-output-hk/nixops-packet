@@ -8,7 +8,7 @@ import nixops_packet.utils as packet_utils
 import nixops_packet.backends.device
 import packet
 import os
-from typing import cast, Optional
+from typing import cast, Optional, Any
 import logging
 
 logger = logging.getLogger(__name__)
@@ -37,7 +37,7 @@ class PacketKeyPairDefinition(nixops.resources.ResourceDefinition):
         super().__init__(name, config)
         self.keypair_name = self.config.name
         if self.config.accessKeyId is None:
-            self.access_key_id = os.environ["PACKET_ACCESS_KEY"]
+            self.access_key_id: Optional[str] = os.environ["PACKET_ACCESS_KEY"]
             logger.debug("Packet API key obtained from env var PACKET_ACCESS_KEY")
         else:
             self.access_key_id = self.config.accessKeyId
@@ -103,6 +103,7 @@ class PacketKeyPairState(nixops.resources.ResourceState[PacketKeyPairDefinition]
                 self.private_key = private
 
         # Upload the public key to Packet.net.
+        self.state: Any
         if check or self.state != self.UP:
 
             try:
@@ -143,7 +144,6 @@ class PacketKeyPairState(nixops.resources.ResourceState[PacketKeyPairDefinition]
                     self.keypair_name, m.name, m.vm_id
                 )
             )
-
         if not self.depl.logger.confirm(
             "are you sure you want to destroy keypair ‘{0}’?".format(self.keypair_name)
         ):

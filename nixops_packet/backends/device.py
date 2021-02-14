@@ -20,7 +20,7 @@ import socket
 import packet
 import json
 import getpass
-from typing import cast, Dict, Optional, Any
+from typing import cast, Dict, Mapping, Optional, Any
 from datetime import datetime
 import logging
 
@@ -30,7 +30,7 @@ logger = logging.getLogger(__name__)
 class PacketMachineOptions(ResourceOptions):
     accessKeyId: Optional[str]
     keyPair: str
-    # tags: List[str]
+    tags: Mapping[str, str]
     facility: str
     plan: str
     project: str
@@ -250,7 +250,9 @@ class PacketState(MachineState[PacketDefinition]):
             elif e.args[0] == "Error 403: You are not authorized to view this device":
                 print(e)
                 if not self.depl.logger.confirm(
-                    "while trying to destroy instance {}, a not-authorized error occurred.\n".format(self.name)
+                    "while trying to destroy instance {}, a not-authorized error occurred.\n".format(
+                        self.name
+                    )
                     + "This may happen if a machine deployment failed and a machine is later reallocated to another customer's account.\n"
                     + "Do you want to remove this machine from nixops and assume it's already been destroyed?"
                 ):
@@ -275,7 +277,7 @@ class PacketState(MachineState[PacketDefinition]):
             check = True
 
         self.set_common_state(defn)
-
+        self.vm_id: Optional[str]
         if self.vm_id and check:
             try:
                 instance = self.connect().get_device(self.vm_id)
@@ -368,7 +370,7 @@ class PacketState(MachineState[PacketDefinition]):
                 )
 
             # If bonding is used, apply a nic bond patch for Nixpkgs issue: https://github.com/NixOS/nixpkgs/issues/69360
-            nics = json.loads(self.metadata)["network"]["interfaces"]
+            nics = json.loads((self.metadata or ""))["network"]["interfaces"]
             macAddress = [nic for nic in nics if "mac" in nic][0]["mac"]
             self.log(f"Obtained a physical nic MAC address: {macAddress}")
             self.log(
@@ -638,7 +640,7 @@ class PacketState(MachineState[PacketDefinition]):
             filtered = list(
                 filter(
                     lambda e: datetime.strptime(e.created_at, "%Y-%m-%dT%H:%M:%SZ")
-                    > ts,
+                    > (ts or datetime(1970, 1, 1)),
                     events,
                 )
             )

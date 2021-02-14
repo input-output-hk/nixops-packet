@@ -1,1 +1,1 @@
-from . import keypair
+from . import keypair  # noqa: F401

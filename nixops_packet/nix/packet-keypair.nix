@@ -12,7 +12,6 @@ with lib;
       description = "Name of the Packet key pair.";
     };
 
-
     accessKeyId = mkOption {
       default = "";
       type = types.str;

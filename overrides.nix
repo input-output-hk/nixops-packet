@@ -1,26 +1,19 @@
 { pkgs }:
 
 self: super: {
-  zipp = super.zipp.overridePythonAttrs (
-    { propagatedBuildInputs ? [], ... }: {
-      propagatedBuildInputs = propagatedBuildInputs ++ [
-        self.toml
-      ];
-    }
-  );
+  nixops = super.nixops.overridePythonAttrs ({ nativeBuildInputs ? [ ], ... }: {
+    nativeBuildInputs = nativeBuildInputs ++ [ self.poetry ];
+    format = "pyproject";
+  });
 
-  packet-python = super.packet-python.overridePythonAttrs (
-    { propagatedBuildInputs ? [], ... }: {
-      buildInputs = propagatedBuildInputs ++ [
-        self.pytest-runner
-      ];
-    }
-  );
+  packet-python = super.packet-python.overridePythonAttrs (old: {
+    buildInputs = (old.propagatedBuildInputs or [ ]) ++ [ self.pytest-runner ];
+    postPatch = ''
+      substituteInPlace setup.py --replace 'setup_requires=["pytest-runner"],' ""
+    '';
+  });
 
-  nixops = super.nixops.overridePythonAttrs (
-    { nativeBuildInputs ? [], ... }: {
-      nativeBuildInputs = nativeBuildInputs ++ [ self.poetry ];
-      format = "pyproject";
-    }
-  );
+  zip = super.zipp.overridePythonAttrs ({ propagatedBuildInputs ? [ ], ... }: {
+    propagatedBuildInputs = propagatedBuildInputs ++ [ self.toml ];
+  });
 }

@@ -14,7 +14,7 @@ for logger_name in plugin_log_list:
     logger = logging.getLogger(logger_name)
     ch = logging.StreamHandler()
     logger.addHandler(ch)
-    lh = logging.handlers.SysLogHandler(address="/dev/log")
+    lh = logging.handlers.SysLogHandler(address="/dev/log")  # type: ignore
     lf = logging.Formatter("{0}[{1}]: %(message)s".format(logger_name, os.getpid()))
     lh.setFormatter(lf)
     logger.addHandler(lh)
