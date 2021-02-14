@@ -20,7 +20,7 @@ import socket
 import packet
 import json
 import getpass
-from typing import cast, Dict, Optional, Any
+from typing import cast, Dict, Mapping, Optional, Any
 from datetime import datetime
 import logging
 
@@ -30,7 +30,7 @@ logger = logging.getLogger(__name__)
 class PacketMachineOptions(ResourceOptions):
     accessKeyId: Optional[str]
     keyPair: str
-    # tags: List[str]
+    tags: Mapping[str, str]
     facility: str
     plan: str
     project: str
@@ -63,7 +63,7 @@ class PacketDefinition(MachineDefinition):
             self.access_key_id = self.config.packet.accessKeyId
 
         self.key_pair = self.config.packet.keyPair
-        # self.tags = self.config.packet.tags
+        self.tags = self.config.packet.tags
         self.facility = self.config.packet.facility
         self.plan = self.config.packet.plan
         self.project = self.config.packet.project
