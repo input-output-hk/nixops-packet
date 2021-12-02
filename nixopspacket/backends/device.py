@@ -115,7 +115,7 @@ class PacketState(MachineState):
     def get_sos_ssh_name(self):
         self.connect()
         instance = self._conn.get_device(self.vm_id)
-        return "sos.{}.packet.net".format(instance.facility['code'])
+        return "sos.{}.platformequinix.com".format(instance.facility['code'])
 
     def op_sos_console(self):
         ssh = nixops.ssh_util.SSH(self.logger)
