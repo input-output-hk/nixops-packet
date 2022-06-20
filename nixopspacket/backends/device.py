@@ -127,11 +127,13 @@ class PacketState(MachineState):
                                allow_ssh_args=True, user=user))
 
     def get_physical_spec_from_plan(self, public_key):
-        if self.provSystem == None:
-            raise Exception("provSystem not set for {0}, metadata {1}".format(self.public_ipv4,self.metadata))
         return {
-            'config': { ('users', 'extraUsers', 'root', 'openssh', 'authorizedKeys', 'keys'): [public_key] },
-            'imports': [ nix2py(self.provSystem) ],
+            "config": {
+                ("users", "extraUsers", "root", "openssh", "authorizedKeys", "keys"): [
+                    public_key
+                ]
+            },
+            "imports": [nix2py(self.provSystem if self.provSystem else "{}")],
         }
 
     def get_physical_spec(self):
